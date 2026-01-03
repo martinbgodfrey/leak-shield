@@ -27,13 +27,13 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
     // --- DEFINING THE TARGETS (SORTED BY NEWEST) ---
     const sites = [
         {
-            name: 'Erome', // Erome doesn't hold 'new' sort well in URL, sticking to default
+            name: 'Erome', 
             searchUrl: (k, p) => `https://www.erome.com/search?q=${encodeURIComponent(k)}&page=${p}`,
             container: '#room_results .album-link, .video-link'
         },
         {
             name: 'Reddit',
-            searchUrl: (k, p) => `https://old.reddit.com/search?q=${encodeURIComponent(k)}&sort=new`, // Already new
+            searchUrl: (k, p) => `https://old.reddit.com/search?q=${encodeURIComponent(k)}&sort=new`, 
             container: '.search-result-link'
         },
         {
@@ -43,7 +43,7 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
         },
         {
             name: 'Pornhub',
-            searchUrl: (k, p) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(k)}&o=d&page=${p}`, // o=d is Date
+            searchUrl: (k, p) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(k)}&o=d&page=${p}`, 
             container: '#videoSearchResult .pcVideoListItem'
         },
         {
@@ -62,7 +62,7 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
             container: '.frame-block, .thumb-block'
         },
         {
-            name: 'XNXX', // XNXX structure: search/keyword/sort/page
+            name: 'XNXX', 
             searchUrl: (k, p) => `https://www.xnxx.com/search/${encodeURIComponent(k)}/date/${p}`,
             container: '.thumb-block'
         }
@@ -74,7 +74,7 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
             // CHECKING PAGES 1 - 3
             for (let pageNum = 1; pageNum <= 3; pageNum++) {
                 
-                // Skip pages 2/3 for Reddit to avoid rate limits, scan deep on others
+                // Skip pages 2/3 for Reddit to avoid rate limits
                 if (site.name === 'Reddit' && pageNum > 1) continue;
 
                 const url = site.searchUrl(term, pageNum);
@@ -98,7 +98,7 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
                             if (siteName === 'Erome') {
                                 title = el.querySelector('.album-title')?.innerText?.trim() || "Erome Album";
                                 link = el.getAttribute('href') || el.parentElement.getAttribute('href');
-                                date = el.innerText.match(/(\d+\s\w+\sago)/)?.[0] || "Recent"; 
+                                date = el.innerText.match(/(\d+\s\w+\sago)/)?.[0] || "Check Link"; 
                             }
                             else if (siteName === 'Reddit') {
                                 title = el.querySelector('a.search-title')?.innerText?.trim();
@@ -152,13 +152,11 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
     // --- ANALYSIS PHASE ---
     console.log(`📊 Analysis: Found ${allFindings.length} raw results. Filtering for relevance...`);
 
-    // Extended filter terms since we are now looking at "Newest"
     const recentTerms = ["minute", "hour", "day", "week", "month", "new", "now", "recent", "ago", "2024", "2025"];
     const verifiedLeaks = [];
     const fuse = new Fuse(allFindings, { keys: ['title'], threshold: 0.4 });
 
     for (const term of keywords) {
-        // Strict matching for vague terms, looser for specific names
         const results = fuse.search(term);
         
         for (const res of results) {
@@ -169,8 +167,6 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
             const isRecent = recentTerms.some(x => t.includes(x));
             const isHighRisk = v.source === 'Erome' || v.source === 'Reddit';
 
-            // Because we sorted by Date, we can trust the results more, 
-            // but we still filter to ensure we don't show "2 years ago" if the site ignored our sort.
             if (isRecent || isHighRisk) {
                 v.evidence = "Found (No Screenshot)";
                 
@@ -185,7 +181,6 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
                             await uploadScreenshot(screenshot, filename, process.env.DRIVE_FOLDER_ID);
                             v.evidence = "Saved to Drive ✅";
                         } else {
-                            // Suppress error if creds are just missing
                             v.evidence = "Drive Not Configured ⚠️";
                         }
                     } catch (e) {
