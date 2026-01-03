@@ -5,22 +5,32 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// FIX: Use built-in middleware to parse JSON
+// 1. Enable JSON parsing (Fixes the "undefined" error)
 app.use(express.json());
-app.use(express.static('public')); 
 
+// 2. Serve the "public" folder as static files
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 3. EXPLICITLY handle the Home Page (The "Foolproof" Fix)
+app.get('/', (req, res) => {
+    const indexPath = path.join(__dirname, 'public', 'index.html');
+    res.sendFile(indexPath, (err) => {
+        if (err) {
+            res.status(500).send("❌ Error: Dashboard file not found. Please redeploy.");
+        }
+    });
+});
+
+// 4. The Scan Endpoint (Only runs when you click the button)
 app.post('/scan', async (req, res) => {
-    // Debug Log: Check if the message arrived
-    console.log("📨 Incoming Request Body:", req.body);
+    console.log("📨 Scan Request Received:", req.body);
 
     if (!req.body || !req.body.keywords) {
         return res.status(400).json({ error: "No keywords provided in request body" });
     }
 
-    const { keywords } = req.body;
-    
     try {
-        const results = await scanKeywords(keywords);
+        const results = await scanKeywords(req.body.keywords);
         res.json({ success: true, data: results });
     } catch (error) {
         console.error("❌ Scan Error:", error);
