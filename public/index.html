@@ -9,19 +9,16 @@
         body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
         .container { max-width: 1000px; margin: 0 auto; }
         
-        /* Header */
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
         h1 { margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
         .status { font-size: 0.9rem; color: #94a3b8; }
         
-        /* Controls */
         .controls { display: grid; grid-template-columns: 1fr auto; gap: 15px; margin-bottom: 30px; }
         input { background: var(--card); border: 1px solid #334155; color: white; padding: 12px; border-radius: 6px; font-size: 1rem; }
         button { background: var(--accent); color: #000; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: opacity 0.2s; }
         button:hover { opacity: 0.9; }
         button:disabled { background: #475569; cursor: not-allowed; }
 
-        /* Results Grid */
         .results-header { display: grid; grid-template-columns: 1fr 150px 100px; gap: 15px; padding: 10px; color: #64748b; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: bold; }
         .results { display: flex; flex-direction: column; gap: 10px; }
         
@@ -88,18 +85,21 @@
                     body: JSON.stringify({ keywords: keywords.split(','), saveScreenshots: true })
                 });
                 
-                const data = await res.json();
+                const responseData = await res.json();
+                
                 loader.style.display = "none";
                 btn.disabled = false;
                 btn.innerText = "INITIATE SCAN";
 
-                if (data.results.length === 0) {
+                // FIX: Check for 'data' OR 'results' to be safe
+                const results = responseData.data || responseData.results || [];
+
+                if (results.length === 0) {
                     list.innerHTML = '<div style="text-align:center; color:#64748b; padding:20px;">No recent leaks found.</div>';
                     return;
                 }
 
-                data.results.forEach(v => {
-                    // Determine risk level based on source
+                results.forEach(v => {
                     const isHighRisk = ['Erome', 'SpankBang', 'Reddit'].includes(v.source);
                     
                     const html = `
@@ -123,6 +123,7 @@
                 });
 
             } catch (e) {
+                console.error(e);
                 alert("Scan failed: " + e.message);
                 btn.disabled = false;
                 loader.style.display = "none";
