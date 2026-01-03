@@ -6,6 +6,7 @@ async function scanKeywords(keywords) {
     console.log("🚀 Starting Scan for:", keywords);
     
     const browser = await chromium.launch();
+    
     // 1. Create a context with the "Age Verification" Cookie pre-loaded
     const context = await browser.newContext({
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
@@ -38,7 +39,8 @@ async function scanKeywords(keywords) {
 
             // Attempt to clear any remaining popups manually
             try {
-                const closeButton = await page.; // Common PH age button ID
+                // The $ symbol is preserved now!
+                const closeButton = await page.$('#accessAgeDisclaimerPHBtn');
                 if (closeButton) await closeButton.click();
             } catch (err) { /* Ignore if button not found */ }
 
