@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LeakShield Dashboard</title>
+    <style>
+        body { font-family: sans-serif; padding: 40px; background: #f4f4f9; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; }
+        button { background: #ff4757; color: white; padding: 12px 20px; border: none; cursor: pointer; width: 100%; font-size: 16px; }
+        button:hover { background: #ff6b81; }
+        .result { border-bottom: 1px solid #eee; padding: 15px 0; }
+        .tag { background: #ffeaa7; padding: 4px 8px; font-size: 12px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ LeakShield Monitor</h1>
+        <p>Enter keywords separated by commas (e.g., "Amouranth, Amouranth OF")</p>
+        
+        <form action="/scan" method="POST">
+            <input type="text" name="keywords" placeholder="Enter keywords..." required>
+            <button type="submit">🔍 Run Live Scan</button>
+        </form>
+
+        <% if (locals.results) { %>
+            <h2>Scan Results</h2>
+            <% if (results.length === 0) { %>
+                <p>✅ No leaks found. You are safe.</p>
+            <% } else { %>
+                <% results.forEach(leak => { %>
+                    <div class="result">
+                        <h3>🚨 <%= leak.title %></h3>
+                        <p><strong>Source:</strong> <%= leak.source %> | <strong>Time:</strong> <%= leak.timeText %></p>
+                        <a href="<%= leak.url %>" target="_blank" style="color:red">View Link</a>
+                    </div>
+                <% }) %>
+            <% } %>
+        <% } %>
+    </div>
+</body>
+</html>

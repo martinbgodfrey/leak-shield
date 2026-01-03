@@ -1,0 +1,323 @@
+{
+  "usableSessionsCount": 4,
+  "retiredSessionsCount": 0,
+  "sessions": [
+    {
+      "id": "session_XcZKZ3oKqC",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-01-01T21:27:42.802Z",
+      "createdAt": "2026-01-01T20:37:42.802Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_4mofLi982O",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": [
+          {
+            "key": "ua",
+            "value": "684fac3d8e595845640e507a9122bd55",
+            "expires": "2026-01-02T20:37:44.947Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.209Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "platform",
+            "value": "pc",
+            "expires": "2026-01-08T20:37:44.947Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.215Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "bs",
+            "value": "000000000000000082f41a89cba7d9c9",
+            "expires": "2027-01-01T20:37:44.947Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.217Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "bsdd",
+            "value": "000000000000000082f41a89cba7d9c9",
+            "expires": "2027-01-01T20:37:44.947Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.217Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "ss",
+            "value": "671712169131102760",
+            "expires": "2027-01-01T20:37:44.947Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.217Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "sessid",
+            "value": "589839310780684824",
+            "expires": "2027-01-01T20:37:44.948Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.217Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "comp_detect-cookies",
+            "value": "54221.100000",
+            "expires": "2026-01-31T20:37:44.948Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.218Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "fg_afaf12e314c5419a855ddc0bf120670f",
+            "value": "53011.100000",
+            "expires": "2026-01-31T20:37:44.948Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.218Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "fg_55e3b6f0afd46366d6fa797544b15af2",
+            "value": "70260.100000",
+            "expires": "2026-01-31T20:37:44.948Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.218Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "__s",
+            "value": "6956DB18-42FE722901BB198D4D-1C4E9F3",
+            "expires": "2026-01-01T21:27:49.506Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.218Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "__l",
+            "value": "6956DB18-42FE722901BB198D4D-1C4E9F3",
+            "expires": "2027-01-02T02:26:30.948Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.218Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "rp",
+            "value": "1547502345:s+23J8WE/Ug=",
+            "expires": "2026-01-01T21:27:53.915Z",
+            "domain": "www.pornhub.com",
+            "path": "/",
+            "httpOnly": true,
+            "hostOnly": true,
+            "creation": "2026-01-01T20:37:49.218Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "fg_439f2555043a44b8bd91161b5deddd29",
+            "value": "96505.100000",
+            "expires": "2026-01-31T20:37:45.386Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.218Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "tj_UUID_v2",
+            "value": "ChCBlSd512hGlLu_DJdIqdDxEgsInZLbygYQ5IXiOBgDKgwImbbbygYQyKqG4QIyE4CPgICAhwGgi4CAwHDoi4CA4Ho6EqaotpTVzYDmaprIicDk1s3QMQ==",
+            "expires": "2026-01-31T20:37:45.881Z",
+            "domain": "www.pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.218Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "tj_UUID",
+            "value": "ChCBlSd512hGlLu_DJdIqdDxEgsInZLbygYQ5IXiOBgDKgwIobbbygYQieDspwEyE4CPgICAhwGgi4CAwHDoi4CA4Ho6EqaotpTVzYDmaprIicDk1s3QMQ==",
+            "expires": "2026-01-31T20:37:53.410Z",
+            "domain": "www.pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.218Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "_ga",
+            "value": "GA1.1.734506945.1767299868",
+            "expires": "2027-02-05T20:37:53.808Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.218Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "_ga_B39RFFWGYY",
+            "value": "GS2.1.s1767299867$o1$g1$t1767299873$j54$l0$h0",
+            "expires": "2027-02-05T20:37:53.862Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.218Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "cookieConsent",
+            "value": "1",
+            "expires": "2027-01-01T20:37:45.000Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "secure": true,
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.218Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "d_fs",
+            "value": "1",
+            "expires": "2026-01-01T21:27:49.506Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.507Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "d_uidb",
+            "value": "8e24dc40-cf83-a042-0aec-c4538fd9acc3",
+            "expires": "2027-01-01T20:37:49.499Z",
+            "domain": "www.pornhub.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:49.507Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "d_uid",
+            "value": "8e24dc40-cf83-a042-0aec-c4538fd9acc3",
+            "expires": "2026-01-31T20:37:51.000Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:53.915Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          },
+          {
+            "key": "d_uidb",
+            "value": "8e24dc40-cf83-a042-0aec-c4538fd9acc3",
+            "expires": "2026-01-31T20:37:51.000Z",
+            "domain": "pornhub.com",
+            "path": "/",
+            "hostOnly": false,
+            "creation": "2026-01-01T20:37:53.915Z",
+            "lastAccessed": "2026-01-01T20:37:53.915Z"
+          }
+        ]
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-01-01T21:27:42.807Z",
+      "createdAt": "2026-01-01T20:37:42.807Z",
+      "usageCount": 3,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_8Z7LrGut5T",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-01-01T21:27:42.824Z",
+      "createdAt": "2026-01-01T20:37:42.824Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    },
+    {
+      "id": "session_WnGpGr95Z4",
+      "cookieJar": {
+        "version": "tough-cookie@6.0.0",
+        "storeType": "MemoryCookieStore",
+        "rejectPublicSuffixes": true,
+        "enableLooseMode": false,
+        "allowSpecialUseDomain": true,
+        "prefixSecurity": "silent",
+        "cookies": []
+      },
+      "userData": {},
+      "maxErrorScore": 3,
+      "errorScoreDecrement": 0.5,
+      "expiresAt": "2026-01-01T21:27:51.751Z",
+      "createdAt": "2026-01-01T20:37:51.751Z",
+      "usageCount": 0,
+      "maxUsageCount": 50,
+      "errorScore": 0
+    }
+  ]
+}
