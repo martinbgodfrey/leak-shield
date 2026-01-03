@@ -1,21 +1,21 @@
-# Use the official Playwright image (Browsers are already installed!)
-FROM mcr.microsoft.com/playwright:v1.40.0-jammy
+# Use the official Playwright image (Includes Node.js + Browsers + Linux Dependencies)
+FROM mcr.microsoft.com/playwright:v1.41.0-jammy
 
-# Set up the folder
+# 1. Set the working directory inside the container
 WORKDIR /app
 
-# Copy dependency files first
+# 2. Copy package files first (better caching)
 COPY package*.json ./
 
-# Install standard Node packages
+# 3. Install dependencies
 RUN npm install
 
-# Copy the rest of your code
+# 4. Copy the rest of your code
 COPY . .
 
-# Tell Railway where the door is
+# 5. Expose the port Railway expects
 ENV PORT=3000
 EXPOSE 3000
 
-# Start the engine
+# 6. Start the server (with a specific host binding for Docker)
 CMD ["node", "server.js"]
