@@ -6,65 +6,167 @@
     <title>LeakShield // Command Center</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
     <style>
-        :root { --bg-dark: #0f172a; --card-bg: #1e293b; --accent: #06b6d4; --text-main: #f8fafc; }
+        :root { --bg-dark: #0f172a; --card-bg: #1e293b; --accent: #06b6d4; --danger: #ef4444; --text-main: #f8fafc; --text-muted: #94a3b8; }
         body { font-family: 'Inter', sans-serif; background: var(--bg-dark); color: var(--text-main); padding: 40px 20px; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-        .logo { font-size: 2rem; font-weight: 600; margin-bottom: 10px; } .logo span { color: var(--accent); }
-        .search-container { display: flex; gap: 10px; width: 100%; max-width: 600px; }
-        input { flex: 1; padding: 18px; border-radius: 12px; border: 2px solid #334155; background: #1e293b; color: white; outline: none; }
-        input:focus { border-color: var(--accent); }
-        button { padding: 0 35px; border-radius: 12px; border: none; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: white; font-weight: 600; cursor: pointer; }
         
-        /* RADAR ANIMATION */
-        #loading { display: none; margin-top: 60px; text-align: center; }
-        .radar-spinner { width: 60px; height: 60px; border: 4px solid rgba(255,255,255,0.1); border-top: 4px solid var(--accent); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .logo { font-size: 2rem; font-weight: 600; margin-bottom: 5px; } .logo span { color: var(--accent); }
+        .subtitle { color: var(--text-muted); margin-bottom: 30px; font-weight: 300; }
+
+        .search-box { background: var(--card-bg); padding: 25px; border-radius: 16px; width: 100%; max-width: 650px; border: 1px solid #334155; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
         
-        /* RESULTS */
-        #results { margin-top: 60px; width: 100%; max-width: 800px; display: grid; gap: 15px; }
-        .card { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid #334155; }
-        .card h3 { margin: 0 0 10px 0; }
-        .badge { background: rgba(6, 182, 212, 0.15); color: var(--accent); padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; }
-        a { color: var(--accent); text-decoration: none; display: block; margin-top: 10px; }
+        /* Input & Buttons */
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 15px; border-radius: 8px; border: 2px solid #334155; background: #0f172a; color: white; outline: none; transition: 0.3s; }
+        input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(6,182,212,0.2); }
+        
+        .btn-scan { padding: 0 30px; border-radius: 8px; border: none; background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); color: white; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-scan:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(6,182,212,0.4); }
+        
+        .btn-clear { padding: 0 20px; border-radius: 8px; border: 1px solid #334155; background: transparent; color: var(--text-muted); cursor: pointer; transition: 0.2s; }
+        .btn-clear:hover { border-color: var(--danger); color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+
+        /* Controls Row */
+        .controls { display: flex; justify-content: space-between; align-items: center; padding-top: 10px; border-top: 1px solid #334155; }
+        
+        .toggle-container { display: flex; align-items: center; color: var(--text-muted); font-size: 0.9rem; gap: 10px; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--accent); }
+        input:checked + .slider:before { transform: translateX(20px); }
+
+        /* Results Area */
+        #action-bar { margin-top: 30px; display: none; width: 100%; max-width: 800px; text-align: right; }
+        .btn-download { background: #334155; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+        .btn-download:hover { background: #475569; }
+
+        #results { margin-top: 15px; width: 100%; max-width: 800px; display: grid; gap: 15px; }
+        .card { background: var(--card-bg); padding: 20px; border-radius: 12px; border: 1px solid #334155; position: relative; animation: fadein 0.5s; overflow: hidden; }
+        .card h3 { margin: 0 0 5px 0; font-size: 1.1rem; }
+        .badge { position: absolute; top: 20px; right: 20px; background: rgba(6, 182, 212, 0.15); color: var(--accent); padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; }
+        .meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 12px; }
+        
+        /* THE URL LINK STYLE */
+        .url-link { 
+            color: var(--accent); 
+            text-decoration: none; 
+            font-size: 0.85rem; 
+            display: block; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            background: rgba(6,182,212,0.1); 
+            padding: 8px 12px; 
+            border-radius: 6px;
+            transition: 0.2s;
+        }
+        .url-link:hover { background: rgba(6,182,212,0.2); }
+        
+        /* Loader */
+        #loading { display: none; margin-top: 40px; text-align: center; }
+        .radar { width: 50px; height: 50px; border: 3px solid rgba(6,182,212,0.3); border-top: 3px solid var(--accent); border-radius: 50%; animation: spin 1s infinite linear; margin: 0 auto 10px; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        @keyframes fadein { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
     </style>
 </head>
 <body>
+
     <div class="logo">Leak<span>Shield</span></div>
-    <div class="search-container">
-        <input type="text" id="keywords" placeholder="Enter keywords...">
-        <button onclick="runScan()">SCAN</button>
+    <div class="subtitle">Automated Deep Web Asset Protection</div>
+
+    <div class="search-box">
+        <div class="input-group">
+            <input type="text" id="keywords" placeholder="Enter keywords (e.g. Fortnite, BrandName)...">
+            <button class="btn-scan" onclick="runScan()">SCAN NETWORK</button>
+            <button class="btn-clear" onclick="clearResults()" title="Clear Results">✖</button>
+        </div>
+        
+        <div class="controls">
+            <div class="toggle-container">
+                <label class="switch">
+                    <input type="checkbox" id="screenshotToggle">
+                    <span class="slider"></span>
+                </label>
+                <span>Evidence Mode (Save Screenshots)</span>
+            </div>
+        </div>
     </div>
-    <div id="loading"><div class="radar-spinner"></div><div>SCANNING DEEP WEB...</div></div>
+
+    <div id="loading">
+        <div class="radar"></div>
+        <div>SCANNING NODES (PAGES 1-5)...</div>
+    </div>
+
+    <div id="action-bar">
+        <button class="btn-download" onclick="downloadCSV()">⬇ Download Report (CSV)</button>
+    </div>
+
     <div id="results"></div>
+
     <script>
+        let currentResults = [];
+
         async function runScan() {
             const input = document.getElementById('keywords').value;
+            const saveScreenshots = document.getElementById('screenshotToggle').checked;
+            
             const keywords = input.split(',').map(s => s.trim()).filter(s => s);
             if (!keywords.length) return alert("Enter a keyword!");
             
             document.getElementById('loading').style.display = 'block';
             document.getElementById('results').innerHTML = '';
+            document.getElementById('action-bar').style.display = 'none';
+            currentResults = []; 
             
             try {
                 const res = await fetch('/scan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ keywords })
+                    body: JSON.stringify({ keywords, saveScreenshots })
                 });
                 const data = await res.json();
+                
                 document.getElementById('loading').style.display = 'none';
                 
                 if (data.data && data.data.length > 0) {
+                    currentResults = data.data; 
+                    document.getElementById('action-bar').style.display = 'block'; 
+                    
                     document.getElementById('results').innerHTML = data.data.map(v => `
                         <div class="card">
                             <h3>${v.title}</h3>
-                            <span class="badge">${v.evidence || 'FOUND'}</span>
-                            <p>${v.source} • ${v.timeText}</p>
-                            <a href="${v.url}" target="_blank">🔗 View Source</a>
+                            <span class="badge">${v.evidence}</span>
+                            <div class="meta">${v.source} • ${v.timeText}</div>
+                            <a href="${v.url}" target="_blank" class="url-link">🔗 ${v.url}</a>
                         </div>`).join('');
                 } else {
-                    document.getElementById('results').innerHTML = '<div style="text-align:center;color:#4ade80;"><h3>✅ System Secure</h3><p>No recent leaks found.</p></div>';
+                    document.getElementById('results').innerHTML = '<div style="text-align:center;color:#4ade80;margin-top:20px;"><h3>✅ Clean Scan</h3><p>No recent leaks found.</p></div>';
                 }
             } catch (err) { alert(err.message); document.getElementById('loading').style.display = 'none'; }
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('keywords').value = '';
+            document.getElementById('action-bar').style.display = 'none';
+            currentResults = [];
+        }
+
+        function downloadCSV() {
+            if (!currentResults.length) return;
+            let csvContent = "data:text/csv;charset=utf-8,Title,Source,Uploaded,Evidence,URL\n";
+            currentResults.forEach(row => {
+                const cleanTitle = row.title.replace(/,/g, " ");
+                csvContent += `${cleanTitle},${row.source},${row.timeText},${row.evidence},${row.url}\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "leak_report.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
         }
     </script>
 </body>
