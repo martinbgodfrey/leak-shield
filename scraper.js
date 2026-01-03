@@ -3,7 +3,7 @@ const Fuse = require('fuse.js');
 const { uploadScreenshot } = require('./drive');
 
 async function scanKeywords(keywords, options = { saveScreenshots: false }) {
-    console.log(`🚀 Starting Scan. Screenshots: ${options.saveScreenshots ? "ON" : "OFF"}`);
+    console.log(`🚀 Starting Big-5 Scan. Screenshots: ${options.saveScreenshots ? "ON" : "OFF"}`);
     
     const browser = await chromium.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox'] 
@@ -14,49 +14,120 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
         locale: 'en-US'
     });
     
-    // Cookie bypass for age verification
+    // Cookie bypass for age verifications
     await context.addCookies([
         { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
-        { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' }
+        { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' },
+        { name: 'accessAgeDisclaimerRT', value: '1', domain: '.redtube.com', path: '/' }
     ]);
 
     const page = await context.newPage();
     let allVideos = [];
 
-    // --- SEARCH PHASE ---
-    for (const term of keywords) {
-        // Checking Pages 1 through 5
-        for (let pageNum = 1; pageNum <= 5; pageNum++) {
-            const url = `https://www.pornhub.com/video/search?search=${encodeURIComponent(term)}&o=mr&page=${pageNum}`;
-            try {
-                console.log(`🔎 Checking "${term}" - Page ${pageNum}...`);
-                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // --- DEFINING THE TARGETS (THE BIG 5) ---
+    const sites = [
+        {
+            name: 'Pornhub',
+            searchUrl: (k, p) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(k)}&o=mr&page=${p}`,
+            container: '#videoSearchResult .pcVideoListItem'
+        },
+        {
+            name: 'RedTube',
+            searchUrl: (k, p) => `https://www.redtube.com/?search=${encodeURIComponent(k)}&page=${p}`,
+            container: '.video_block'
+        },
+        {
+            name: 'XHamster',
+            searchUrl: (k, p) => `https://xhamster.com/search?q=${encodeURIComponent(k)}&page=${p}`,
+            container: 'div[data-video-id]'
+        },
+        {
+            name: 'XVideos',
+            searchUrl: (k, p) => `https://www.xvideos.com/?k=${encodeURIComponent(k)}&p=${p}`,
+            container: '.frame-block, .thumb-block'
+        },
+        {
+            name: 'XNXX',
+            searchUrl: (k, p) => `https://www.xnxx.com/search/${encodeURIComponent(k)}/${p}`,
+            container: '.thumb-block'
+        }
+    ];
 
-                if (pageNum === 1) {
-                    try {
-                        const closeButton = await page.$('#accessAgeDisclaimerPHBtn');
-                        if (closeButton) await closeButton.click();
-                    } catch (err) {}
+    // --- SEARCH LOOP ---
+    for (const site of sites) {
+        for (const term of keywords) {
+            // Checking Pages 1-3 to keep speed reasonable
+            for (let pageNum = 1; pageNum <= 3; pageNum++) {
+                const url = site.searchUrl(term, pageNum);
+                
+                try {
+                    console.log(`🔎 [${site.name}] Checking "${term}" - Page ${pageNum}...`);
+                    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+
+                    // Specific popup closers
+                    if (pageNum === 1 && site.name === 'Pornhub') {
+                        try { await page.click('#accessAgeDisclaimerPHBtn', {timeout: 1000}); } catch(e){}
+                    }
+
+                    // Extract Data (Custom logic for each site)
+                    const videos = await page.$$eval(site.container, (els, siteName) => {
+                        return els.map(el => {
+                            let title = "Unknown";
+                            let link = "";
+                            let timeText = "Unknown";
+
+                            if (siteName === 'Pornhub') {
+                                title = el.querySelector('.title a')?.innerText?.trim();
+                                link = "https://pornhub.com" + el.querySelector('.title a')?.getAttribute('href');
+                                timeText = el.querySelector('.added')?.innerText?.trim();
+                            } 
+                            else if (siteName === 'RedTube') {
+                                title = el.querySelector('a.video_title')?.innerText?.trim();
+                                link = "https://redtube.com" + el.querySelector('a.video_link')?.getAttribute('href');
+                                timeText = el.querySelector('.added_time')?.innerText?.trim();
+                            }
+                            else if (siteName === 'XHamster') {
+                                title = el.querySelector('.video-thumb__title')?.innerText?.trim();
+                                link = el.querySelector('a.video-thumb__link')?.getAttribute('href');
+                                timeText = el.querySelector('.video-thumb__upload-time')?.innerText?.trim();
+                            }
+                            else if (siteName === 'XVideos') {
+                                title = el.querySelector('.title a')?.innerText?.trim();
+                                const href = el.querySelector('.title a')?.getAttribute('href');
+                                link = href ? "https://xvideos.com" + href : "";
+                                // XVideos date is often inside a text node or metadata
+                                timeText = el.innerText.includes('ago') ? 'Recent' : 'Unknown'; 
+                            }
+                            else if (siteName === 'XNXX') {
+                                title = el.querySelector('.thumb-under a')?.innerText?.trim() || el.querySelector('.title a')?.innerText?.trim();
+                                const href = el.querySelector('.thumb-under a')?.getAttribute('href') || el.querySelector('.title a')?.getAttribute('href');
+                                link = href ? "https://xnxx.com" + href : "";
+                                timeText = el.innerText.includes('ago') ? 'Recent' : 'Unknown';
+                            }
+
+                            return { title, url: link, timeText: timeText || "Unknown", source: siteName };
+                        });
+                    }, site.name);
+
+                    // Filter valid results
+                    const validVideos = videos.filter(v => v.title && v.url && v.url.startsWith('http'));
+                    if (validVideos.length === 0 && pageNum === 1) {
+                         // If page 1 has no results, don't check page 2 or 3
+                         break;
+                    }
+                    allVideos = [...allVideos, ...validVideos];
+
+                } catch (e) { 
+                    console.error(`   Error [${site.name}] Page ${pageNum}:`, e.message); 
                 }
-
-                const videos = await page.$$eval('#videoSearchResult .pcVideoListItem', (els) => {
-                    return els.map(el => ({
-                        title: el.querySelector('.title a')?.innerText?.trim() || "Unknown",
-                        url: "https://pornhub.com" + el.querySelector('.title a')?.getAttribute('href'),
-                        timeText: el.querySelector('.added')?.innerText?.trim() || "Old",
-                        source: "Pornhub"
-                    }));
-                });
-
-                if (videos.length === 0) break;
-                allVideos = [...allVideos, ...videos];
-
-            } catch (e) { console.error(`   Error Page ${pageNum}:`, e.message); }
+            }
         }
     }
 
     // --- ANALYSIS PHASE ---
-    const recentTerms = ["minute", "hour", "day", "week", "month", "new", "now"];
+    console.log(`📊 Analysis: Found ${allVideos.length} total videos. Filtering for recent leaks...`);
+
+    const recentTerms = ["minute", "hour", "day", "week", "month", "new", "now", "recent", "sec"];
     const leaks = [];
     const fuse = new Fuse(allVideos, { keys: ['title'], threshold: 0.4 });
 
@@ -66,26 +137,26 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
             const v = res.item;
             const t = v.timeText.toLowerCase();
             
-            if (recentTerms.some(x => t.includes(x)) || t.includes('new')) {
-                // DEFAULT STATUS
+            // Logic: Is it recent?
+            if (recentTerms.some(x => t.includes(x)) || t.includes('new') || t.includes('recent')) {
                 v.evidence = "Found (No Screenshot)";
 
-                // IF TOGGLE IS ON -> TAKE SCREENSHOT
+                // OPTIONAL SCREENSHOT
                 if (options.saveScreenshots) {
-                    console.log(`📸 Snapping Evidence: ${v.title}`);
+                    console.log(`📸 Snapping: ${v.title}`);
                     try {
                         await page.goto(v.url, { waitUntil: 'load', timeout: 15000 });
-                        const screenshot = await page.screenshot({ fullPage: false });
+                        const screenshot = await page.screenshot();
                         
                         if (process.env.DRIVE_FOLDER_ID) {
-                            const filename = `EVIDENCE_${v.title.replace(/[^a-z0-9]/gi, '_').substring(0, 20)}_${Date.now()}.png`;
+                            const filename = `EVIDENCE_${v.source}_${Date.now()}.png`;
                             await uploadScreenshot(screenshot, filename, process.env.DRIVE_FOLDER_ID);
                             v.evidence = "Saved to Drive ✅";
                         } else {
                             v.evidence = "Drive Not Configured ⚠️";
                         }
                     } catch (e) {
-                        console.error("   Screenshot failed:", e.message);
+                        console.error("   Screenshot Error:", e.message);
                         v.evidence = "Screenshot Failed ❌";
                     }
                 }
