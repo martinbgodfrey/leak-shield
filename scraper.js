@@ -3,7 +3,7 @@ const Fuse = require('fuse.js');
 const { uploadScreenshot } = require('./drive');
 
 async function scanKeywords(keywords, options = { saveScreenshots: false }) {
-    console.log(`🚀 Starting DEEP SCAN (Sort: Newest | Pages: 1-3)...`);
+    console.log(`🚀 Starting UNFILTERED SCAN (Sort: Newest | Pages: 1-3)...`);
     
     const browser = await chromium.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
@@ -71,11 +71,8 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
     // --- SEARCH LOOP ---
     for (const site of sites) {
         for (const term of keywords) {
-            // CHECKING PAGES 1 - 3
             for (let pageNum = 1; pageNum <= 3; pageNum++) {
-                
-                // Skip pages 2/3 for Reddit to avoid rate limits
-                if (site.name === 'Reddit' && pageNum > 1) continue;
+                if (site.name === 'Reddit' && pageNum > 1) continue; // Reddit rate limit protection
 
                 const url = site.searchUrl(term, pageNum);
                 
@@ -83,12 +80,10 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
                     console.log(`🔎 [${site.name}] Checking "${term}" (Page ${pageNum})...`);
                     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
 
-                    // HANDLE POPUPS
                     if (pageNum === 1 && site.name === 'Pornhub') {
                         try { await page.click('#accessAgeDisclaimerPHBtn', {timeout: 1000}); } catch(e){}
                     }
 
-                    // EXTRACT DATA
                     const findings = await page.$$eval(site.container, (els, siteName) => {
                         return els.map(el => {
                             let title = "Unknown";
@@ -150,30 +145,34 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
     }
 
     // --- ANALYSIS PHASE ---
-    console.log(`📊 Analysis: Found ${allFindings.length} raw results. Filtering for relevance...`);
+    console.log(`📊 Analysis: Found ${allFindings.length} raw results. Processing ALL of them...`);
 
     const recentTerms = ["minute", "hour", "day", "week", "month", "new", "now", "recent", "ago", "2024", "2025"];
     const verifiedLeaks = [];
     const fuse = new Fuse(allFindings, { keys: ['title'], threshold: 0.4 });
 
     for (const term of keywords) {
+        // Get all relevance matches (removed date filter)
         const results = fuse.search(term);
         
         for (const res of results) {
             const v = res.item;
             const t = v.date.toLowerCase();
             
-            // Check recency OR high risk source
+            // Check recency OR high risk source just for "Priority" tagging
             const isRecent = recentTerms.some(x => t.includes(x));
             const isHighRisk = v.source === 'Erome' || v.source === 'Reddit';
-
+            
+            // Determine Status
             if (isRecent || isHighRisk) {
+                v.status = "FRESH";
                 v.evidence = "Found (No Screenshot)";
                 
+                // Only Screenshot High Priority items to prevent timeout
                 if (options.saveScreenshots) {
-                    console.log(`📸 Snapping: [${v.source}] ${v.title}`);
+                    console.log(`📸 Snapping (Fresh): [${v.source}] ${v.title}`);
                     try {
-                        await page.goto(v.url, { waitUntil: 'load', timeout: 15000 });
+                        await page.goto(v.url, { waitUntil: 'load', timeout: 10000 }); // Shorter timeout
                         const screenshot = await page.screenshot();
                         
                         if (process.env.DRIVE_FOLDER_ID && process.env.GOOGLE_CLIENT_EMAIL) {
@@ -187,9 +186,14 @@ async function scanKeywords(keywords, options = { saveScreenshots: false }) {
                         v.evidence = "Screenshot Failed ❌";
                     }
                 }
-                
-                verifiedLeaks.push(v);
+            } else {
+                // "Legacy" items (older posts) - We list them but skip screenshot to save time
+                v.status = "LEGACY";
+                v.evidence = "Archived Link"; 
             }
+            
+            // Pushing ALL results now
+            verifiedLeaks.push(v);
         }
     }
 

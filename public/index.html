@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepScan // Leak Monitor</title>
+    <title>DeepScan // Full Archive</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #38bdf8; --red: #f43f5e; }
+        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #38bdf8; --red: #f43f5e; --gray: #64748b; }
         body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; }
+        .container { max-width: 1200px; margin: 0 auto; }
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
         h1 { margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
@@ -19,11 +19,14 @@
         button:hover { opacity: 0.9; }
         button:disabled { background: #475569; cursor: not-allowed; }
 
-        .results-header { display: grid; grid-template-columns: 1fr 150px 100px; gap: 15px; padding: 10px; color: #64748b; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: bold; }
+        .results-header { display: grid; grid-template-columns: 1fr 120px 150px 100px; gap: 15px; padding: 10px; color: #64748b; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: bold; }
         .results { display: flex; flex-direction: column; gap: 10px; }
         
-        .card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--accent); display: grid; grid-template-columns: 1fr 150px 100px; gap: 15px; align-items: center; }
-        .card.risk-high { border-left-color: var(--red); }
+        .card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--gray); display: grid; grid-template-columns: 1fr 120px 150px 100px; gap: 15px; align-items: center; }
+        
+        /* Styles for Fresh vs Legacy */
+        .card.status-fresh { border-left-color: var(--red); background: #2a2d3d; }
+        .card.status-legacy { opacity: 0.8; }
         
         .info h3 { margin: 0 0 5px 0; font-size: 1rem; }
         .info a { color: var(--text); text-decoration: none; }
@@ -32,6 +35,9 @@
         .badge { background: #334155; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; }
         
         .date-col { font-size: 0.9rem; color: #cbd5e1; }
+        .status-col { font-size: 0.8rem; font-weight: bold; letter-spacing: 0.5px; }
+        .status-fresh .status-col { color: var(--red); }
+        
         .action-col .btn-link { color: var(--accent); text-decoration: none; font-size: 0.9rem; border: 1px solid var(--accent); padding: 5px 10px; border-radius: 4px; display: inline-block; text-align: center; }
         .action-col .btn-link:hover { background: rgba(56, 189, 248, 0.1); }
 
@@ -42,22 +48,23 @@
     <div class="container">
         <div class="header">
             <div>
-                <h1>DEEPSCAN // MONITOR</h1>
-                <div class="status">System Active • 8 Sources Connected</div>
+                <h1>DEEPSCAN // FULL ARCHIVE</h1>
+                <div class="status">Showing ALL Historical Matches</div>
             </div>
         </div>
 
         <div class="controls">
-            <input type="text" id="keywords" placeholder="Enter keywords (e.g., username, real name)..." value="fortnite">
-            <button onclick="runScan()" id="scanBtn">INITIATE SCAN</button>
+            <input type="text" id="keywords" placeholder="Enter keywords (e.g., username, real name)..." value="alexis texas">
+            <button onclick="runScan()" id="scanBtn">INITIATE DEEP SCAN</button>
         </div>
 
         <div id="loading" class="loading">
-            Scanning Surface & Deep Web... This may take up to 60 seconds.
+            Scanning 3 layers deep across 8 networks... Gathering ALL history.
         </div>
 
         <div class="results-header">
             <div>Finding</div>
+            <div>Status</div>
             <div>Date Posted</div>
             <div>Action</div>
         </div>
@@ -89,27 +96,34 @@
                 
                 loader.style.display = "none";
                 btn.disabled = false;
-                btn.innerText = "INITIATE SCAN";
+                btn.innerText = "INITIATE DEEP SCAN";
 
-                // FIX: Check for 'data' OR 'results' to be safe
                 const results = responseData.data || responseData.results || [];
 
                 if (results.length === 0) {
-                    list.innerHTML = '<div style="text-align:center; color:#64748b; padding:20px;">No recent leaks found.</div>';
+                    list.innerHTML = '<div style="text-align:center; color:#64748b; padding:20px;">No results found.</div>';
                     return;
                 }
 
+                // Show totals
+                list.innerHTML = `<div style="padding:10px; color:#94a3b8; text-align:right;">Total Records Found: ${results.length}</div>`;
+
                 results.forEach(v => {
-                    const isHighRisk = ['Erome', 'SpankBang', 'Reddit'].includes(v.source);
+                    // Determine styling based on status
+                    const statusClass = v.status === 'FRESH' ? 'status-fresh' : 'status-legacy';
+                    const statusText = v.status === 'FRESH' ? '🔥 FRESH' : '🗄️ ARCHIVE';
                     
                     const html = `
-                        <div class="card ${isHighRisk ? 'risk-high' : ''}">
+                        <div class="card ${statusClass}">
                             <div class="info">
                                 <h3><a href="${v.url}" target="_blank">${v.title}</a></h3>
                                 <div class="meta">
                                     <span class="badge">${v.source}</span>
                                     <span>${v.evidence}</span>
                                 </div>
+                            </div>
+                            <div class="status-col">
+                                ${statusText}
                             </div>
                             <div class="date-col">
                                 📅 ${v.date}
