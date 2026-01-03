@@ -1,56 +1,32 @@
 const express = require('express');
+const bodyParser = require('body-parser');
 const { scanKeywords } = require('./scraper');
+const path = require('path');
+
 const app = express();
+const PORT = process.env.PORT || 8080;
 
-// Use the PORT Railway gives us, or default to 3000
-const port = process.env.PORT || 3000;
+app.use(bodyParser.json());
+app.use(express.static('public')); // Serve the HTML file
 
-// Middleware to parse form data
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
-
-// Set up the view engine
-app.set('view engine', 'ejs');
-
-// 1. Health Check (for Railway to know we are alive)
-app.get('/health', (req, res) => {
-    res.status(200).send('OK');
-});
-
-// 2. The Dashboard (Home Page)
-app.get('/', (req, res) => {
-    try {
-        res.render('index', { results: null, loading: false, error: null });
-    } catch (e) {
-        console.error("Render Error:", e);
-        res.status(500).send("Error loading dashboard: " + e.message);
-    }
-});
-
-// 3. The Trigger (When user clicks "Scan")
+// API Endpoint to run the scan
 app.post('/scan', async (req, res) => {
-    console.log("Received scan request...");
-    const keywordsRaw = req.body.keywords;
-    
-    if (!keywordsRaw) {
-        return res.render('index', { results: null, error: "Please enter keywords." });
+    const { keywords } = req.body;
+    if (!keywords || keywords.length === 0) {
+        return res.status(400).json({ error: "No keywords provided" });
     }
 
-    const keywords = keywordsRaw.split(',').map(k => k.trim());
-    console.log(`Scanning for: ${keywords.join(', ')}`);
-
+    console.log("Received scan request for:", keywords);
+    
     try {
-        const findings = await scanKeywords(keywords);
-        console.log(`Scan complete. Found ${findings.length} results.`);
-        res.render('index', { results: findings, searched: keywords, error: null });
+        const results = await scanKeywords(keywords);
+        res.json({ success: true, data: results });
     } catch (error) {
-        console.error("Scraper Failed:", error);
-        res.render('index', { results: [], error: "Scan Failed: " + error.message });
+        console.error("Scan Error:", error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// 4. Start the Server
-// We bind to '0.0.0.0' to ensure Docker maps the port correctly
-app.listen(port, '0.0.0.0', () => {
-    console.log(`✅ Server started successfully on port ${port}`);
+app.listen(PORT, () => {
+    console.log(`✅ Server started on port ${PORT}`);
 });
