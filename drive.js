@@ -41,7 +41,7 @@ async function uploadScreenshot(screenshotBuffer, fileName, folderId) {
         return response.data.id;
     } catch (error) {
         console.error("❌ Drive Upload Failed:", error.message);
-        throw error; // Re-throw so the scraper knows it failed
+        throw error; 
     }
 }
 
