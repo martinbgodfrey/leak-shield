@@ -1,7 +1,5 @@
 {
-  "name": "leak-detector",
-  "version": "1.0.0",
-  "type": "module",
+  "name": "leak-detector",  "version": "1.0.0",
   "description": "",
   "main": "main.js",
   "scripts": {
