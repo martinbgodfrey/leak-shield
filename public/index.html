@@ -9,18 +9,26 @@
         body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
         .container { max-width: 1300px; margin: 0 auto; }
         
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
         h1 { margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
         
-        .controls { display: grid; grid-template-columns: 1fr auto; gap: 15px; margin-bottom: 30px; }
+        .controls { display: grid; grid-template-columns: 1fr auto; gap: 15px; margin-bottom: 20px; }
         input { background: var(--card); border: 1px solid #334155; color: white; padding: 12px; border-radius: 6px; font-size: 1rem; }
         button#scanBtn { background: var(--accent); color: #000; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; }
-        button#scanBtn:hover { opacity: 0.9; }
+
+        /* FILTER BAR */
+        .filter-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filter-btn { 
+            background: var(--card); border: 1px solid #334155; color: #94a3b8; 
+            padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s;
+        }
+        .filter-btn:hover { border-color: var(--accent); color: var(--text); }
+        .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: bold; }
 
         .results-header { display: grid; grid-template-columns: 1fr 120px 150px 140px; gap: 15px; padding: 10px; color: #64748b; font-size: 0.85rem; text-transform: uppercase; font-weight: bold; }
         .results { display: flex; flex-direction: column; gap: 10px; }
         
-        .card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid #64748b; display: grid; grid-template-columns: 1fr 120px 150px 140px; gap: 15px; align-items: center; transition: all 0.2s; }
+        .card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid #64748b; display: grid; grid-template-columns: 1fr 120px 150px 140px; gap: 15px; align-items: center; }
         .card.fresh { border-left-color: var(--red); background: #252836; }
         
         .info h3 { margin: 0 0 5px 0; font-size: 1rem; }
@@ -29,16 +37,13 @@
         .meta { font-size: 0.85rem; color: #94a3b8; display: flex; gap: 10px; }
         .badge { background: #334155; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; }
         
-        /* Capture Button Styles */
         .btn-capture { 
             background: transparent; border: 1px solid var(--accent); color: var(--accent); 
             padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; width: 100%; text-align: center;
         }
         .btn-capture:hover { background: rgba(56, 189, 248, 0.1); }
-        
         .btn-success { background: rgba(34, 197, 94, 0.1); border: 1px solid var(--green); color: var(--green); cursor: default; }
         .btn-loading { border: 1px solid #64748b; color: #64748b; cursor: wait; }
-
         .loading { text-align: center; padding: 40px; display: none; }
     </style>
 </head>
@@ -46,6 +51,7 @@
     <div class="container">
         <div class="header">
             <h1>DEEPSCAN // INVESTIGATOR</h1>
+            <div id="countDisplay" style="color: #94a3b8;">0 Results</div>
         </div>
 
         <div class="controls">
@@ -53,7 +59,15 @@
             <button onclick="runScan()" id="scanBtn">SEARCH NETWORKS</button>
         </div>
 
-        <div id="loading" class="loading">Scanning networks... this typically takes 15-30 seconds.</div>
+        <div class="filter-bar">
+            <button class="filter-btn active" onclick="filterResults('all', this)">All Results</button>
+            <button class="filter-btn" onclick="filterResults('24h', this)">Last 24 Hours</button>
+            <button class="filter-btn" onclick="filterResults('week', this)">Past Week</button>
+            <button class="filter-btn" onclick="filterResults('month', this)">Past Month</button>
+            <button class="filter-btn" onclick="filterResults('year', this)">Over 1 Year</button>
+        </div>
+
+        <div id="loading" class="loading">Scanning networks... Gathering 200+ datapoints...</div>
 
         <div class="results-header">
             <div>Finding</div>
@@ -65,6 +79,8 @@
     </div>
 
     <script>
+        let allData = []; // Store raw data here
+
         async function runScan() {
             const btn = document.getElementById('scanBtn');
             const loader = document.getElementById('loading');
@@ -77,6 +93,7 @@
             btn.innerText = "SCANNING...";
             list.innerHTML = "";
             loader.style.display = "block";
+            allData = []; // Clear old data
 
             try {
                 const res = await fetch('/scan', {
@@ -90,45 +107,11 @@
                 btn.disabled = false;
                 btn.innerText = "SEARCH NETWORKS";
 
-                const results = data.data || [];
-                
-                if (results.length === 0) {
-                    list.innerHTML = '<div style="text-align:center; padding:20px;">No results found.</div>';
-                    return;
-                }
+                allData = data.data || [];
+                document.getElementById('countDisplay').innerText = `${allData.length} Results Found`;
 
-                // Sort: Fresh first
-                const recentTerms = ["minute", "hour", "day", "week", "new", "now", "ago"];
-                results.sort((a, b) => {
-                    const aFresh = recentTerms.some(t => a.date.toLowerCase().includes(t));
-                    const bFresh = recentTerms.some(t => b.date.toLowerCase().includes(t));
-                    return bFresh - aFresh;
-                });
-
-                results.forEach(v => {
-                    const isFresh = recentTerms.some(t => v.date.toLowerCase().includes(t));
-                    const cardClass = isFresh ? 'card fresh' : 'card';
-                    
-                    const html = `
-                        <div class="${cardClass}">
-                            <div class="info">
-                                <h3><a href="${v.url}" target="_blank">${v.title}</a></h3>
-                                <div class="meta">
-                                    <span class="badge">${isFresh ? '🔥 FRESH' : 'ARCHIVE'}</span>
-                                    <span>${v.url.substring(0, 40)}...</span>
-                                </div>
-                            </div>
-                            <div>${v.source}</div>
-                            <div>${v.date}</div>
-                            <div>
-                                <button class="btn-capture" onclick="captureEvidence(this, '${v.url}', '${v.source}', '${v.title.replace(/'/g, "")}')">
-                                    📸 CAPTURE
-                                </button>
-                            </div>
-                        </div>
-                    `;
-                    list.innerHTML += html;
-                });
+                // Render ALL by default
+                renderList(allData);
 
             } catch (e) {
                 console.error(e);
@@ -137,9 +120,89 @@
             }
         }
 
+        function renderList(items) {
+            const list = document.getElementById('results');
+            list.innerHTML = "";
+
+            if (items.length === 0) {
+                list.innerHTML = '<div style="text-align:center; padding:20px;">No results match this filter.</div>';
+                return;
+            }
+
+            items.forEach(v => {
+                const isFresh = checkIsFresh(v.date);
+                const cardClass = isFresh ? 'card fresh' : 'card';
+                
+                const html = `
+                    <div class="${cardClass}">
+                        <div class="info">
+                            <h3><a href="${v.url}" target="_blank">${v.title}</a></h3>
+                            <div class="meta">
+                                <span class="badge">${isFresh ? '🔥 RECENT' : 'ARCHIVE'}</span>
+                                <span>${v.url.substring(0, 40)}...</span>
+                            </div>
+                        </div>
+                        <div>${v.source}</div>
+                        <div>${v.date}</div>
+                        <div>
+                            <button class="btn-capture" onclick="captureEvidence(this, '${v.url}', '${v.source}', '${v.title.replace(/'/g, "")}')">
+                                📸 CAPTURE
+                            </button>
+                        </div>
+                    </div>
+                `;
+                list.innerHTML += html;
+            });
+        }
+
+        function checkIsFresh(dateStr) {
+            const recent = ["minute", "hour", "day", "now", "ago"];
+            return recent.some(r => dateStr.toLowerCase().includes(r)) && !dateStr.includes("year");
+        }
+
+        // --- FILTER LOGIC ---
+        function filterResults(mode, btnElement) {
+            // Update active button visual
+            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btnElement.classList.add('active');
+
+            const now = new Date();
+            
+            const filtered = allData.filter(item => {
+                const d = item.date.toLowerCase();
+                
+                // 1. ALL
+                if (mode === 'all') return true;
+
+                // 2. 24 HOURS (minute, hour, "1 day ago")
+                if (mode === '24h') {
+                    return d.includes('minute') || d.includes('hour') || d.includes('now') || d === '1 day ago';
+                }
+
+                // 3. WEEK (days ago)
+                if (mode === 'week') {
+                    return d.includes('day') || d.includes('week') || d.includes('hour') || d.includes('minute');
+                }
+
+                // 4. MONTH (month, weeks)
+                if (mode === 'month') {
+                    return d.includes('month') || d.includes('week') || d.includes('day');
+                }
+
+                // 5. YEAR+ (year, 2023, 2022)
+                if (mode === 'year') {
+                    return d.includes('year') || d.includes('2024') || d.includes('2023') || d.includes('2022');
+                }
+                
+                return true;
+            });
+
+            renderList(filtered);
+            document.getElementById('countDisplay').innerText = `${filtered.length} Results Shown`;
+        }
+
         async function captureEvidence(btn, url, source, title) {
             if (btn.classList.contains('btn-success')) return;
-
             const originalText = btn.innerText;
             btn.innerText = "⏳ SNAPPING...";
             btn.classList.add('btn-loading');
@@ -151,16 +214,11 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url, source, title })
                 });
-                
                 const data = await res.json();
-                
                 if (data.success) {
                     btn.className = "btn-capture btn-success";
                     btn.innerText = "SAVED TO DRIVE ✅";
-                    btn.onclick = null; // Disable click
-                } else {
-                    throw new Error(data.error);
-                }
+                } else { throw new Error(data.error); }
             } catch (e) {
                 btn.className = "btn-capture";
                 btn.innerText = "FAILED ❌";
