@@ -7,7 +7,7 @@
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #38bdf8; --red: #f43f5e; --green: #22c55e; }
         body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
-        .container { max-width: 1300px; margin: 0 auto; }
+        .container { max-width: 1400px; margin: 0 auto; }
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
         h1 { margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
@@ -16,22 +16,26 @@
         input { background: var(--card); border: 1px solid #334155; color: white; padding: 12px; border-radius: 6px; font-size: 1rem; }
         button#scanBtn { background: var(--accent); color: #000; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; }
 
-        /* FILTER BAR */
-        .filter-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        /* FILTER SECTIONS */
+        .filter-section { margin-bottom: 15px; }
+        .filter-label { font-size: 0.8rem; color: #64748b; margin-bottom: 5px; text-transform: uppercase; font-weight: bold; }
+        .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+        
         .filter-btn { 
             background: var(--card); border: 1px solid #334155; color: #94a3b8; 
-            padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s;
+            padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
         }
         .filter-btn:hover { border-color: var(--accent); color: var(--text); }
         .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: bold; }
 
-        .results-header { display: grid; grid-template-columns: 1fr 120px 150px 140px; gap: 15px; padding: 10px; color: #64748b; font-size: 0.85rem; text-transform: uppercase; font-weight: bold; }
+        /* RESULTS TABLE */
+        .results-header { display: grid; grid-template-columns: 1fr 120px 150px 140px; gap: 15px; padding: 10px; color: #64748b; font-size: 0.85rem; text-transform: uppercase; font-weight: bold; margin-top: 20px;}
         .results { display: flex; flex-direction: column; gap: 10px; }
         
         .card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid #64748b; display: grid; grid-template-columns: 1fr 120px 150px 140px; gap: 15px; align-items: center; }
         .card.fresh { border-left-color: var(--red); background: #252836; }
         
-        .info h3 { margin: 0 0 5px 0; font-size: 1rem; }
+        .info h3 { margin: 0 0 5px 0; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 600px; }
         .info a { color: var(--text); text-decoration: none; }
         .info a:hover { color: var(--accent); }
         .meta { font-size: 0.85rem; color: #94a3b8; display: flex; gap: 10px; }
@@ -41,7 +45,6 @@
             background: transparent; border: 1px solid var(--accent); color: var(--accent); 
             padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; width: 100%; text-align: center;
         }
-        .btn-capture:hover { background: rgba(56, 189, 248, 0.1); }
         .btn-success { background: rgba(34, 197, 94, 0.1); border: 1px solid var(--green); color: var(--green); cursor: default; }
         .btn-loading { border: 1px solid #64748b; color: #64748b; cursor: wait; }
         .loading { text-align: center; padding: 40px; display: none; }
@@ -55,19 +58,29 @@
         </div>
 
         <div class="controls">
-            <input type="text" id="keywords" placeholder="Enter target keywords..." value="alexis texas">
+            <input type="text" id="keywords" placeholder="Enter target keywords (e.g. name, username)..." value="alexis texas">
             <button onclick="runScan()" id="scanBtn">SEARCH NETWORKS</button>
         </div>
 
-        <div class="filter-bar">
-            <button class="filter-btn active" onclick="filterResults('all', this)">All Results</button>
-            <button class="filter-btn" onclick="filterResults('24h', this)">Last 24 Hours</button>
-            <button class="filter-btn" onclick="filterResults('week', this)">Past Week</button>
-            <button class="filter-btn" onclick="filterResults('month', this)">Past Month</button>
-            <button class="filter-btn" onclick="filterResults('year', this)">Over 1 Year</button>
+        <div class="filter-section">
+            <div class="filter-label">Timeframe</div>
+            <div class="filter-bar" id="dateFilters">
+                <button class="filter-btn active" onclick="setDateFilter('all', this)">All Time</button>
+                <button class="filter-btn" onclick="setDateFilter('24h', this)">Last 24 Hours</button>
+                <button class="filter-btn" onclick="setDateFilter('week', this)">Past Week</button>
+                <button class="filter-btn" onclick="setDateFilter('month', this)">Past Month</button>
+                <button class="filter-btn" onclick="setDateFilter('year', this)">Over 1 Year</button>
+            </div>
         </div>
 
-        <div id="loading" class="loading">Scanning networks... Gathering 200+ datapoints...</div>
+        <div class="filter-section">
+            <div class="filter-label">Source Network</div>
+            <div class="filter-bar" id="sourceFilters">
+                <button class="filter-btn active" onclick="setSourceFilter('all', this)">All Sources</button>
+                </div>
+        </div>
+
+        <div id="loading" class="loading">Scanning 8 networks deep... Please wait...</div>
 
         <div class="results-header">
             <div>Finding</div>
@@ -79,7 +92,8 @@
     </div>
 
     <script>
-        let allData = []; // Store raw data here
+        let allData = [];
+        let currentFilters = { date: 'all', source: 'all' };
 
         async function runScan() {
             const btn = document.getElementById('scanBtn');
@@ -93,7 +107,10 @@
             btn.innerText = "SCANNING...";
             list.innerHTML = "";
             loader.style.display = "block";
-            allData = []; // Clear old data
+            
+            // Reset Filters
+            currentFilters = { date: 'all', source: 'all' };
+            resetButtons();
 
             try {
                 const res = await fetch('/scan', {
@@ -108,10 +125,12 @@
                 btn.innerText = "SEARCH NETWORKS";
 
                 allData = data.data || [];
-                document.getElementById('countDisplay').innerText = `${allData.length} Results Found`;
-
-                // Render ALL by default
-                renderList(allData);
+                
+                // Generate Source Buttons
+                generateSourceButtons(allData);
+                
+                // Render Default
+                applyFilters();
 
             } catch (e) {
                 console.error(e);
@@ -120,12 +139,69 @@
             }
         }
 
+        function generateSourceButtons(data) {
+            const container = document.getElementById('sourceFilters');
+            // Keep the "All Sources" button
+            container.innerHTML = '<button class="filter-btn active" onclick="setSourceFilter(\'all\', this)">All Sources</button>';
+            
+            // Get unique sources
+            const sources = [...new Set(data.map(i => i.source))].sort();
+            
+            sources.forEach(source => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-btn';
+                btn.innerText = source;
+                btn.onclick = () => setSourceFilter(source, btn);
+                container.appendChild(btn);
+            });
+        }
+
+        function setDateFilter(mode, btn) {
+            currentFilters.date = mode;
+            // Update UI
+            document.querySelectorAll('#dateFilters .filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            applyFilters();
+        }
+
+        function setSourceFilter(source, btn) {
+            currentFilters.source = source;
+            // Update UI
+            document.querySelectorAll('#sourceFilters .filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const now = new Date();
+            
+            const filtered = allData.filter(item => {
+                const d = item.date.toLowerCase();
+                const s = item.source;
+
+                // 1. Check Source
+                if (currentFilters.source !== 'all' && s !== currentFilters.source) return false;
+
+                // 2. Check Date
+                if (currentFilters.date === 'all') return true;
+                if (currentFilters.date === '24h') return d.includes('minute') || d.includes('hour') || d.includes('now') || d === '1 day ago';
+                if (currentFilters.date === 'week') return d.includes('day') || d.includes('week') || d.includes('hour') || d.includes('minute');
+                if (currentFilters.date === 'month') return d.includes('month') || d.includes('week') || d.includes('day');
+                if (currentFilters.date === 'year') return d.includes('year') || d.includes('2024') || d.includes('2023') || d.includes('2022');
+                
+                return true;
+            });
+
+            document.getElementById('countDisplay').innerText = `${filtered.length} Results Shown`;
+            renderList(filtered);
+        }
+
         function renderList(items) {
             const list = document.getElementById('results');
             list.innerHTML = "";
 
             if (items.length === 0) {
-                list.innerHTML = '<div style="text-align:center; padding:20px;">No results match this filter.</div>';
+                list.innerHTML = '<div style="text-align:center; padding:20px;">No results match these filters.</div>';
                 return;
             }
 
@@ -159,51 +235,14 @@
             const recent = ["minute", "hour", "day", "now", "ago"];
             return recent.some(r => dateStr.toLowerCase().includes(r)) && !dateStr.includes("year");
         }
-
-        // --- FILTER LOGIC ---
-        function filterResults(mode, btnElement) {
-            // Update active button visual
-            document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-            btnElement.classList.add('active');
-
-            const now = new Date();
-            
-            const filtered = allData.filter(item => {
-                const d = item.date.toLowerCase();
-                
-                // 1. ALL
-                if (mode === 'all') return true;
-
-                // 2. 24 HOURS (minute, hour, "1 day ago")
-                if (mode === '24h') {
-                    return d.includes('minute') || d.includes('hour') || d.includes('now') || d === '1 day ago';
-                }
-
-                // 3. WEEK (days ago)
-                if (mode === 'week') {
-                    return d.includes('day') || d.includes('week') || d.includes('hour') || d.includes('minute');
-                }
-
-                // 4. MONTH (month, weeks)
-                if (mode === 'month') {
-                    return d.includes('month') || d.includes('week') || d.includes('day');
-                }
-
-                // 5. YEAR+ (year, 2023, 2022)
-                if (mode === 'year') {
-                    return d.includes('year') || d.includes('2024') || d.includes('2023') || d.includes('2022');
-                }
-                
-                return true;
-            });
-
-            renderList(filtered);
-            document.getElementById('countDisplay').innerText = `${filtered.length} Results Shown`;
+        
+        function resetButtons() {
+             document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+             document.querySelector('#dateFilters button:first-child').classList.add('active');
         }
 
         async function captureEvidence(btn, url, source, title) {
             if (btn.classList.contains('btn-success')) return;
-            const originalText = btn.innerText;
             btn.innerText = "⏳ SNAPPING...";
             btn.classList.add('btn-loading');
             btn.disabled = true;
