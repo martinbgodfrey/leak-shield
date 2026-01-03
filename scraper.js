@@ -2,10 +2,9 @@ const { chromium } = require('playwright');
 const Fuse = require('fuse.js');
 const { uploadScreenshot } = require('./drive');
 
-async function scanKeywords(keywords) {
-    console.log("🚀 Starting Deep Scan (Pages 1-5)...");
+async function scanKeywords(keywords, options = { saveScreenshots: false }) {
+    console.log(`🚀 Starting Scan. Screenshots: ${options.saveScreenshots ? "ON" : "OFF"}`);
     
-    // Launch with Docker args
     const browser = await chromium.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox'] 
     });
@@ -15,7 +14,7 @@ async function scanKeywords(keywords) {
         locale: 'en-US'
     });
     
-    // Age Verification Cookie
+    // Cookie bypass for age verification
     await context.addCookies([
         { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
         { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' }
@@ -24,16 +23,15 @@ async function scanKeywords(keywords) {
     const page = await context.newPage();
     let allVideos = [];
 
-    // KEYWORD LOOP
+    // --- SEARCH PHASE ---
     for (const term of keywords) {
-        // PAGINATION LOOP (Check Page 1, 2, 3, 4, 5)
+        // Checking Pages 1 through 5
         for (let pageNum = 1; pageNum <= 5; pageNum++) {
             const url = `https://www.pornhub.com/video/search?search=${encodeURIComponent(term)}&o=mr&page=${pageNum}`;
             try {
                 console.log(`🔎 Checking "${term}" - Page ${pageNum}...`);
                 await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-                
-                // Clear popups (only needed on page 1 usually)
+
                 if (pageNum === 1) {
                     try {
                         const closeButton = await page.$('#accessAgeDisclaimerPHBtn');
@@ -41,7 +39,6 @@ async function scanKeywords(keywords) {
                     } catch (err) {}
                 }
 
-                // Scrape Results
                 const videos = await page.$$eval('#videoSearchResult .pcVideoListItem', (els) => {
                     return els.map(el => ({
                         title: el.querySelector('.title a')?.innerText?.trim() || "Unknown",
@@ -51,24 +48,14 @@ async function scanKeywords(keywords) {
                     }));
                 });
 
-                if (videos.length === 0) {
-                    console.log(`   ⚠️ No videos on Page ${pageNum}. Stopping this keyword.`);
-                    break; // Stop checking pages if this one is empty
-                }
-
-                console.log(`   Found ${videos.length} videos on Page ${pageNum}`);
+                if (videos.length === 0) break;
                 allVideos = [...allVideos, ...videos];
 
-            } catch (e) { 
-                console.error(`   Error on Page ${pageNum}:`, e.message); 
-            }
+            } catch (e) { console.error(`   Error Page ${pageNum}:`, e.message); }
         }
     }
 
-    // FILTER & SCREENSHOT
-    console.log(`🧐 Analyzing ${allVideos.length} total videos...`);
-    
-    // BROADER FILTER: Now includes "week", "month", "day" to ensure you see results
+    // --- ANALYSIS PHASE ---
     const recentTerms = ["minute", "hour", "day", "week", "month", "new", "now"];
     const leaks = [];
     const fuse = new Fuse(allVideos, { keys: ['title'], threshold: 0.4 });
@@ -79,33 +66,36 @@ async function scanKeywords(keywords) {
             const v = res.item;
             const t = v.timeText.toLowerCase();
             
-            // If it matches our broader time filter...
             if (recentTerms.some(x => t.includes(x)) || t.includes('new')) {
-                console.log(`📸 Saving Evidence: ${v.title} (${v.timeText})`);
-                
-                try {
-                    // Go to video page
-                    await page.goto(v.url, { waitUntil: 'load', timeout: 15000 });
-                    const screenshot = await page.screenshot({ fullPage: false });
-                    
-                    if (process.env.DRIVE_FOLDER_ID) {
-                        // Create a safe filename
-                        const cleanTitle = v.title.replace(/[^a-z0-9]/gi, '_').substring(0, 20);
-                        const filename = `EVIDENCE_${cleanTitle}_${Date.now()}.png`;
+                // DEFAULT STATUS
+                v.evidence = "Found (No Screenshot)";
+
+                // IF TOGGLE IS ON -> TAKE SCREENSHOT
+                if (options.saveScreenshots) {
+                    console.log(`📸 Snapping Evidence: ${v.title}`);
+                    try {
+                        await page.goto(v.url, { waitUntil: 'load', timeout: 15000 });
+                        const screenshot = await page.screenshot({ fullPage: false });
                         
-                        await uploadScreenshot(screenshot, filename, process.env.DRIVE_FOLDER_ID);
-                        v.evidence = "Saved to Drive ✅";
+                        if (process.env.DRIVE_FOLDER_ID) {
+                            const filename = `EVIDENCE_${v.title.replace(/[^a-z0-9]/gi, '_').substring(0, 20)}_${Date.now()}.png`;
+                            await uploadScreenshot(screenshot, filename, process.env.DRIVE_FOLDER_ID);
+                            v.evidence = "Saved to Drive ✅";
+                        } else {
+                            v.evidence = "Drive Not Configured ⚠️";
+                        }
+                    } catch (e) {
+                        console.error("   Screenshot failed:", e.message);
+                        v.evidence = "Screenshot Failed ❌";
                     }
-                } catch (e) {
-                    console.error("   Screenshot failed:", e.message);
                 }
+                
                 leaks.push(v);
             }
         }
     }
 
     await browser.close();
-    console.log(`✅ Deep Scan Complete. Found ${leaks.length} actionable leaks.`);
     return leaks;
 }
 
