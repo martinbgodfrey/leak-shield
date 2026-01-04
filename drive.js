@@ -1,7 +1,13 @@
 const { google } = require('googleapis');
 const stream = require('stream');
 
-// SANITIZE KEY: Replaces literal "\n" strings with actual newlines
+// --- DEBUG CHECK ---
+if (!process.env.GOOGLE_CLIENT_EMAIL) console.error("⚠️  MISSING: GOOGLE_CLIENT_EMAIL environment variable");
+if (!process.env.GOOGLE_PRIVATE_KEY) console.error("⚠️  MISSING: GOOGLE_PRIVATE_KEY environment variable");
+else console.log("✅ Google Credentials detected in environment.");
+// -------------------
+
+// SANITIZE KEY
 const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY 
     ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') 
     : null;
@@ -18,8 +24,8 @@ const drive = google.drive({ version: 'v3', auth });
 
 async function uploadScreenshot(screenshotBuffer, fileName, folderId) {
     if (!PRIVATE_KEY || !process.env.GOOGLE_CLIENT_EMAIL) {
-        console.log("⚠️ Google Drive credentials missing. Skipping upload.");
-        return;
+        console.log("⚠️ Google Drive credentials missing (Check Variables). Skipping upload.");
+        return null;
     }
 
     try {

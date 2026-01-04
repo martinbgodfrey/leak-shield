@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 
 async function scanKeywords(keywords) {
-    console.log(`🚀 Starting ROBUST SCAN (Title Fix + All Sources)...`);
+    console.log(`🚀 Starting ROBUST SCAN (Fixed XNXX & Pornhub)...`);
     
     const browser = await chromium.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
@@ -34,7 +34,7 @@ async function scanKeywords(keywords) {
         { 
             name: 'Pornhub', 
             searchUrl: (k, p) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(k)}&o=d&page=${p}`, 
-            container: '#videoSearchResult .pcVideoListItem' 
+            container: '#videoSearchResult .pcVideoListItem, li.videoBox' 
         },
         { 
             name: 'RedTube', 
@@ -61,16 +61,25 @@ async function scanKeywords(keywords) {
     for (const site of sites) {
         for (const term of keywords) {
             for (let pageNum = 1; pageNum <= 3; pageNum++) {
-                // Rate limit protection for Reddit
                 if (site.name === 'Reddit' && pageNum > 1) continue;
 
                 try {
                     console.log(`🔎 [${site.name}] Checking "${term}" (Page ${pageNum})...`);
-                    await page.goto(site.searchUrl(term, pageNum), { waitUntil: 'domcontentloaded', timeout: 20000 });
+                    const url = site.searchUrl(term, pageNum);
                     
-                    // Popups
-                    if (pageNum === 1 && site.name === 'Pornhub') {
-                        try { await page.click('#accessAgeDisclaimerPHBtn', {timeout: 500}); } catch(e){}
+                    // Increased timeout for slow proxies/sites
+                    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
+                    
+                    // --- AGGRESSIVE AGE GATE HANDLING ---
+                    if (site.name === 'Pornhub') {
+                        try { 
+                            // Try multiple selectors for the "I am 18" button
+                            if (await page.$('#accessAgeDisclaimerPHBtn')) await page.click('#accessAgeDisclaimerPHBtn');
+                            else if (await page.$('.age-verification-container button')) await page.click('.age-verification-container button');
+                            await page.waitForTimeout(500); // Give it a moment to clear
+                        } catch(e){
+                            // Ignore click errors, sometimes it's not there
+                        }
                     }
 
                     const findings = await page.$$eval(site.container, (els, siteName) => {
@@ -91,8 +100,8 @@ async function scanKeywords(keywords) {
                                 date = el.querySelector('.search-time time')?.innerText;
                             }
                             else if (siteName === 'Pornhub') {
-                                // Fix: Get title from attribute to avoid "1080p"
-                                const linkObj = el.querySelector('.title a');
+                                // Try two places for title to capture "Recommended" and "List" views
+                                const linkObj = el.querySelector('.title a') || el.querySelector('a.linkVideoThumb');
                                 title = linkObj?.getAttribute('title') || linkObj?.innerText?.trim();
                                 link = "https://pornhub.com" + linkObj?.getAttribute('href');
                                 date = el.querySelector('.added')?.innerText?.trim();
@@ -110,19 +119,23 @@ async function scanKeywords(keywords) {
                                 date = el.querySelector('.added_time')?.innerText?.trim();
                             }
                             else if (siteName === 'XHamster') {
-                                // XHamster puts title in aria-label or thumb title
                                 title = el.querySelector('.video-thumb__title')?.innerText?.trim();
                                 link = el.querySelector('a.video-thumb__link')?.getAttribute('href');
                                 date = el.querySelector('.video-thumb__upload-time')?.innerText?.trim();
                             }
-                            else if (siteName === 'XVideos' || siteName === 'XNXX') {
-                                const linkTag = el.querySelector('p.title a') || el.querySelector('a');
+                            else if (siteName === 'XVideos') {
+                                const linkTag = el.querySelector('p.title a');
                                 title = linkTag?.getAttribute('title') || linkTag?.innerText?.trim();
                                 link = linkTag?.getAttribute('href');
-                                
-                                if (link && !link.startsWith('http')) {
-                                    link = (siteName === 'XVideos' ? "https://xvideos.com" : "https://xnxx.com") + link;
-                                }
+                                if (link && !link.startsWith('http')) link = "https://xvideos.com" + link;
+                                date = el.innerText.match(/(\d+\s\w+\sago)/)?.[0];
+                            }
+                            else if (siteName === 'XNXX') {
+                                // FIX: Look inside .thumb-under p.title or just the 'a' title
+                                const linkTag = el.querySelector('.thumb-under a') || el.querySelector('a');
+                                title = linkTag?.getAttribute('title') || el.querySelector('.thumb-under')?.innerText?.split('\n')[0];
+                                link = linkTag?.getAttribute('href');
+                                if (link && !link.startsWith('http')) link = "https://xnxx.com" + link;
                                 date = el.innerText.match(/(\d+\s\w+\sago)/)?.[0];
                             }
 
