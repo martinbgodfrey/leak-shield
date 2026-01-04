@@ -9,6 +9,7 @@
         body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; }
         .container { max-width: 1400px; margin: 0 auto; }
         
+        /* HEADER & CONTROLS */
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
         h1 { margin: 0; font-size: 1.5rem; letter-spacing: 1px; }
         
@@ -16,11 +17,10 @@
         input { background: var(--card); border: 1px solid #334155; color: white; padding: 12px; border-radius: 6px; font-size: 1rem; }
         button#scanBtn { background: var(--accent); color: #000; border: none; padding: 12px 24px; border-radius: 6px; font-weight: bold; cursor: pointer; }
 
-        /* FILTER SECTIONS */
+        /* FILTERS */
         .filter-section { margin-bottom: 15px; }
         .filter-label { font-size: 0.8rem; color: #64748b; margin-bottom: 5px; text-transform: uppercase; font-weight: bold; }
         .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; }
-        
         .filter-btn { 
             background: var(--card); border: 1px solid #334155; color: #94a3b8; 
             padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
@@ -28,11 +28,11 @@
         .filter-btn:hover { border-color: var(--accent); color: var(--text); }
         .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: bold; }
 
-        /* RESULTS TABLE */
-        .results-header { display: grid; grid-template-columns: 1fr 120px 150px 140px; gap: 15px; padding: 10px; color: #64748b; font-size: 0.85rem; text-transform: uppercase; font-weight: bold; margin-top: 20px;}
+        /* RESULTS GRID */
+        .results-header { display: grid; grid-template-columns: 1fr 120px 150px 180px; gap: 15px; padding: 10px; color: #64748b; font-size: 0.85rem; text-transform: uppercase; font-weight: bold; margin-top: 20px;}
         .results { display: flex; flex-direction: column; gap: 10px; }
         
-        .card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid #64748b; display: grid; grid-template-columns: 1fr 120px 150px 140px; gap: 15px; align-items: center; }
+        .card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid #64748b; display: grid; grid-template-columns: 1fr 120px 150px 180px; gap: 15px; align-items: center; }
         .card.fresh { border-left-color: var(--red); background: #252836; }
         
         .info h3 { margin: 0 0 5px 0; font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 600px; }
@@ -41,13 +41,33 @@
         .meta { font-size: 0.85rem; color: #94a3b8; display: flex; gap: 10px; }
         .badge { background: #334155; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; }
         
+        /* ACTION BUTTONS */
+        .action-group { display: flex; gap: 5px; }
         .btn-capture { 
             background: transparent; border: 1px solid var(--accent); color: var(--accent); 
-            padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; width: 100%; text-align: center;
+            padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: bold; flex: 1; text-align: center;
         }
-        .btn-success { background: rgba(34, 197, 94, 0.1); border: 1px solid var(--green); color: var(--green); cursor: default; }
+        .btn-capture:hover { background: rgba(56, 189, 248, 0.1); }
         .btn-loading { border: 1px solid #64748b; color: #64748b; cursor: wait; }
+        
+        /* New View/DL Buttons */
+        .btn-view { background: rgba(34, 197, 94, 0.1); border: 1px solid var(--green); color: var(--green); cursor: pointer; }
+        .btn-dl { background: #334155; border: 1px solid #475569; color: white; cursor: pointer; }
+        .btn-dl:hover { background: #475569; }
+
         .loading { text-align: center; padding: 40px; display: none; }
+
+        /* MODAL STYLES */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); z-index: 1000; justify-content: center; align-items: center;
+        }
+        .modal-content {
+            background: var(--card); padding: 20px; border-radius: 8px; max-width: 90%; max-height: 90%;
+            display: flex; flex-direction: column; gap: 15px; box-shadow: 0 0 50px rgba(0,0,0,0.5);
+        }
+        .modal-img { max-width: 100%; max-height: 80vh; border: 1px solid #334155; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
     </style>
 </head>
 <body>
@@ -58,7 +78,7 @@
         </div>
 
         <div class="controls">
-            <input type="text" id="keywords" placeholder="Enter target keywords (e.g. name, username)..." value="alexis texas">
+            <input type="text" id="keywords" placeholder="Enter target keywords..." value="alexis texas">
             <button onclick="runScan()" id="scanBtn">SEARCH NETWORKS</button>
         </div>
 
@@ -77,24 +97,37 @@
             <div class="filter-label">Source Network</div>
             <div class="filter-bar" id="sourceFilters">
                 <button class="filter-btn active" onclick="setSourceFilter('all', this)">All Sources</button>
-                </div>
+            </div>
         </div>
 
-        <div id="loading" class="loading">Scanning 8 networks deep... Please wait...</div>
+        <div id="loading" class="loading">Scanning networks...</div>
 
         <div class="results-header">
             <div>Finding</div>
             <div>Source</div>
             <div>Date</div>
-            <div>Evidence</div>
+            <div>Actions</div>
         </div>
         <div id="results" class="results"></div>
+    </div>
+
+    <div id="imageModal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-content">
+            <img id="modalImg" class="modal-img" src="" alt="Evidence">
+            <div class="modal-actions">
+                <button class="filter-btn" onclick="document.getElementById('imageModal').style.display='none'">Close</button>
+                <a id="downloadLink" href="#" download="evidence.png">
+                    <button class="filter-btn active">⬇️ Download Original</button>
+                </a>
+            </div>
+        </div>
     </div>
 
     <script>
         let allData = [];
         let currentFilters = { date: 'all', source: 'all' };
 
+        // --- SCANNING LOGIC ---
         async function runScan() {
             const btn = document.getElementById('scanBtn');
             const loader = document.getElementById('loading');
@@ -108,7 +141,6 @@
             list.innerHTML = "";
             loader.style.display = "block";
             
-            // Reset Filters
             currentFilters = { date: 'all', source: 'all' };
             resetButtons();
 
@@ -125,11 +157,7 @@
                 btn.innerText = "SEARCH NETWORKS";
 
                 allData = data.data || [];
-                
-                // Generate Source Buttons
                 generateSourceButtons(allData);
-                
-                // Render Default
                 applyFilters();
 
             } catch (e) {
@@ -139,14 +167,11 @@
             }
         }
 
+        // --- FILTER LOGIC ---
         function generateSourceButtons(data) {
             const container = document.getElementById('sourceFilters');
-            // Keep the "All Sources" button
             container.innerHTML = '<button class="filter-btn active" onclick="setSourceFilter(\'all\', this)">All Sources</button>';
-            
-            // Get unique sources
             const sources = [...new Set(data.map(i => i.source))].sort();
-            
             sources.forEach(source => {
                 const btn = document.createElement('button');
                 btn.className = 'filter-btn';
@@ -158,7 +183,6 @@
 
         function setDateFilter(mode, btn) {
             currentFilters.date = mode;
-            // Update UI
             document.querySelectorAll('#dateFilters .filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             applyFilters();
@@ -166,32 +190,23 @@
 
         function setSourceFilter(source, btn) {
             currentFilters.source = source;
-            // Update UI
             document.querySelectorAll('#sourceFilters .filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             applyFilters();
         }
 
         function applyFilters() {
-            const now = new Date();
-            
             const filtered = allData.filter(item => {
                 const d = item.date.toLowerCase();
                 const s = item.source;
-
-                // 1. Check Source
                 if (currentFilters.source !== 'all' && s !== currentFilters.source) return false;
-
-                // 2. Check Date
                 if (currentFilters.date === 'all') return true;
                 if (currentFilters.date === '24h') return d.includes('minute') || d.includes('hour') || d.includes('now') || d === '1 day ago';
                 if (currentFilters.date === 'week') return d.includes('day') || d.includes('week') || d.includes('hour') || d.includes('minute');
                 if (currentFilters.date === 'month') return d.includes('month') || d.includes('week') || d.includes('day');
                 if (currentFilters.date === 'year') return d.includes('year') || d.includes('2024') || d.includes('2023') || d.includes('2022');
-                
                 return true;
             });
-
             document.getElementById('countDisplay').innerText = `${filtered.length} Results Shown`;
             renderList(filtered);
         }
@@ -199,16 +214,13 @@
         function renderList(items) {
             const list = document.getElementById('results');
             list.innerHTML = "";
-
-            if (items.length === 0) {
-                list.innerHTML = '<div style="text-align:center; padding:20px;">No results match these filters.</div>';
-                return;
-            }
+            if (items.length === 0) { list.innerHTML = '<div style="text-align:center; padding:20px;">No results match.</div>'; return; }
 
             items.forEach(v => {
                 const isFresh = checkIsFresh(v.date);
                 const cardClass = isFresh ? 'card fresh' : 'card';
                 
+                // Note the ID on the action group to allow easy replacement
                 const html = `
                     <div class="${cardClass}">
                         <div class="info">
@@ -220,8 +232,8 @@
                         </div>
                         <div>${v.source}</div>
                         <div>${v.date}</div>
-                        <div>
-                            <button class="btn-capture" onclick="captureEvidence(this, '${v.url}', '${v.source}', '${v.title.replace(/'/g, "")}')">
+                        <div class="action-group" id="action-${btoa(v.url).substring(0, 10)}">
+                            <button class="btn-capture" onclick="captureEvidence(this, '${v.url}', '${v.source}', '${v.title.replace(/'/g, "")}', 'action-${btoa(v.url).substring(0, 10)}')">
                                 📸 CAPTURE
                             </button>
                         </div>
@@ -241,8 +253,8 @@
              document.querySelector('#dateFilters button:first-child').classList.add('active');
         }
 
-        async function captureEvidence(btn, url, source, title) {
-            if (btn.classList.contains('btn-success')) return;
+        // --- CAPTURE & MODAL LOGIC ---
+        async function captureEvidence(btn, url, source, title, containerId) {
             btn.innerText = "⏳ SNAPPING...";
             btn.classList.add('btn-loading');
             btn.disabled = true;
@@ -254,15 +266,44 @@
                     body: JSON.stringify({ url, source, title })
                 });
                 const data = await res.json();
+                
                 if (data.success) {
-                    btn.className = "btn-capture btn-success";
-                    btn.innerText = "SAVED TO DRIVE ✅";
+                    // Replace button with View/Download buttons
+                    const container = document.getElementById(containerId);
+                    
+                    // Create buttons dynamically
+                    container.innerHTML = `
+                        <button class="btn-capture btn-view" onclick="openModal('${data.image}', '${data.filename}')">
+                            👁️ VIEW
+                        </button>
+                        <a href="${data.image}" download="${data.filename}" style="flex:1">
+                            <button class="btn-capture btn-dl">⬇️ DL</button>
+                        </a>
+                    `;
                 } else { throw new Error(data.error); }
             } catch (e) {
                 btn.className = "btn-capture";
                 btn.innerText = "FAILED ❌";
                 btn.disabled = false;
                 alert("Capture failed: " + e.message);
+            }
+        }
+
+        function openModal(base64Img, filename) {
+            const modal = document.getElementById('imageModal');
+            const img = document.getElementById('modalImg');
+            const dlLink = document.getElementById('downloadLink');
+
+            img.src = base64Img;
+            dlLink.href = base64Img;
+            dlLink.download = filename;
+            
+            modal.style.display = 'flex';
+        }
+
+        function closeModal(e) {
+            if (e.target.id === 'imageModal') {
+                document.getElementById('imageModal').style.display = 'none';
             }
         }
     </script>

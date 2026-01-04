@@ -7,14 +7,14 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(express.static('public'));
-app.use(express.json());
+app.use(express.json({ limit: '50mb' })); // Increased limit for images
 
-// 1. SEARCH ENDPOINT (Fast, Text Only)
+// 1. SEARCH ENDPOINT
 app.post('/scan', async (req, res) => {
     const { keywords } = req.body;
     try {
         console.log(`Incoming Scan Request: ${keywords}`);
-        const results = await scanKeywords(keywords, { saveScreenshots: false }); // Auto-snap disabled
+        const results = await scanKeywords(keywords);
         res.json({ success: true, count: results.length, data: results });
     } catch (error) {
         console.error("Scan Error:", error);
@@ -22,7 +22,7 @@ app.post('/scan', async (req, res) => {
     }
 });
 
-// 2. CAPTURE ENDPOINT (Manual Trigger)
+// 2. CAPTURE ENDPOINT (Returns Image + Uploads to Drive)
 app.post('/capture', async (req, res) => {
     const { url, source, title } = req.body;
     console.log(`📸 Manual Capture Requested: ${url}`);
@@ -39,7 +39,6 @@ app.post('/capture', async (req, res) => {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
         });
 
-        // Set cookies for age gates
         if (source === 'Pornhub') {
             await page.context().addCookies([
                 { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
@@ -48,15 +47,29 @@ app.post('/capture', async (req, res) => {
         }
 
         await page.goto(url, { waitUntil: 'load', timeout: 25000 });
-        const screenshot = await page.screenshot();
         
-        // Upload to Drive
+        // Take Screenshot
+        const screenshotBuffer = await page.screenshot({ fullPage: false });
+        const base64Image = screenshotBuffer.toString('base64'); // Convert to string for browser
+        
+        // Upload to Drive (Background Backup)
         const filename = `EVIDENCE_${source}_${Date.now()}.png`;
-        const driveId = await uploadScreenshot(screenshot, filename, process.env.DRIVE_FOLDER_ID);
+        let driveId = null;
+        try {
+             driveId = await uploadScreenshot(screenshotBuffer, filename, process.env.DRIVE_FOLDER_ID);
+        } catch(e) {
+             console.log("Drive upload skipped or failed (User still gets local download).");
+        }
         
         await browser.close();
         
-        res.json({ success: true, driveId: driveId, filename: filename });
+        // Return image data to frontend
+        res.json({ 
+            success: true, 
+            driveId: driveId, 
+            image: `data:image/png;base64,${base64Image}`,
+            filename: filename 
+        });
 
     } catch (error) {
         if (browser) await browser.close();
