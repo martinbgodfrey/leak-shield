@@ -1,64 +1,353 @@
-<script>
-    let allData = [];
-    let currentEvidence = {};
-
-    // 1. ENTER KEY LISTENER (Search)
-    document.getElementById('keywords').addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') {
-            runScan();
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LeakShield Hunter // Stealth Mode</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #e2e8f0;
+            --accent: #3b82f6;
+            --danger: #ef4444;
+            --success: #22c55e;
         }
-    });
 
-    // 2. ESC KEY LISTENER (Close Modal)
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            document.getElementById('modal').style.display = 'none';
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
         }
-    });
 
-    async function runScan() {
-        const btn = document.getElementById('scanBtn');
-        const list = document.getElementById('results');
+        .container {
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        /* --- SEARCH BAR --- */
+        .search-box {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: white;
+            font-size: 16px;
+            outline: none;
+        }
+
+        input:focus { border-color: var(--accent); }
+
+        button {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: opacity 0.2s;
+        }
+
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-primary:disabled { background: #475569; cursor: not-allowed; }
+
+        /* --- FILTERS --- */
+        #filterBar {
+            display: none; /* Hidden until search runs */
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            background: var(--card);
+            color: #94a3b8;
+            border: 1px solid #334155;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+
+        .filter-btn.active {
+            background: var(--accent);
+            color: white;
+            border-color: var(--accent);
+        }
+
+        /* --- RESULTS LIST --- */
+        #results {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .finding-card {
+            background: var(--card);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .finding-info h3 { margin: 0 0 5px 0; font-size: 16px; }
+        .finding-info p { margin: 0; font-size: 12px; color: #94a3b8; }
+        .tag { 
+            display: inline-block; 
+            padding: 2px 6px; 
+            border-radius: 4px; 
+            font-size: 10px; 
+            font-weight: bold; 
+            margin-right: 5px;
+        }
+        .tag-pornhub { background: #FFA500; color: black; }
+        .tag-xnxx { background: #00BFFF; color: black; }
+        .tag-xvideos { background: #DC143C; color: white; }
+        .tag-reddit { background: #FF4500; color: white; }
+
+        .actions { display: flex; gap: 10px; align-items: center; }
+
+        .btn-capture {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 6px 12px;
+            font-size: 12px;
+        }
         
-        btn.disabled = true; 
-        btn.innerText = "SCANNING...";
-        list.innerHTML = "<div style='text-align:center; padding:40px; color:#94a3b8;'>Scanning networks... (This may take 30s)</div>";
+        .btn-capture:hover { background: rgba(59, 130, 246, 0.1); }
 
-        try {
-            const res = await fetch('/scan', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ keywords: document.getElementById('keywords').value.split(',') })
-            });
-            const data = await res.json();
-            allData = data.data || [];
-            
-            // Setup Filters (Updated to be hidden initially)
-            document.getElementById('filterBar').style.display = 'flex';
-            generateSourceButtons(allData);
-            applyFilters();
-
-        } catch (e) {
-            list.innerHTML = `<div style="color:red; text-align:center;">Error: ${e.message}</div>`;
+        .btn-view {
+            text-decoration: none;
+            color: #94a3b8;
+            font-size: 12px;
         }
-        btn.disabled = false; 
-        btn.innerText = "SCAN NETWORKS";
-    }
+        .btn-view:hover { color: white; }
 
-    // ... (Keep existing generateSourceButtons, setDateFilter, etc.) ...
-    
-    // ... (Keep existing capture() function) ...
+        /* --- MODAL (Screenshot Viewer) --- */
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            flex-direction: column;
+        }
+        
+        #modal img {
+            max-width: 90%;
+            max-height: 80vh;
+            border: 2px solid var(--text);
+            box-shadow: 0 0 20px rgba(255,255,255,0.1);
+        }
 
-    function openModalFromPanel() {
-        if(!currentEvidence.img) return;
-        document.getElementById('modalImg').src = currentEvidence.img;
-        document.getElementById('modal').style.display = 'flex';
-    }
-    
-    // Close modal on click outside image
-    function closeModal(e) { 
-        if(e.target.id === 'modal') document.getElementById('modal').style.display = 'none'; 
-    }
-    
-    // ... (Rest of existing render logic) ...
-</script>
+        .modal-controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 15px;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
+            <h2 style="margin:0;">🕵️‍♂️ LeakShield Hunter</h2>
+            <span style="font-size:12px; color:#64748b;">v3.0 (Stealth + Vision)</span>
+        </div>
+
+        <div class="search-box">
+            <input type="text" id="keywords" placeholder="Enter keywords (e.g. Alexis Texas, user123)..." />
+            <button id="scanBtn" class="btn-primary" onclick="runScan()">SCAN NETWORKS</button>
+        </div>
+
+        <div id="filterBar">
+            <button class="filter-btn active" onclick="filterResults('all')">All Sources</button>
+            </div>
+
+        <div id="results">
+            <div style="text-align:center; color:#475569; margin-top:40px;">
+                Ready to scan. Enter keywords above.
+            </div>
+        </div>
+    </div>
+
+    <div id="modal" onclick="closeModal(event)">
+        <img id="modalImg" src="" />
+        <div class="modal-controls">
+            <span style="color:white;">Press ESC to close</span>
+        </div>
+    </div>
+
+    <script>
+        let allData = [];
+        
+        // --- 1. KEYBOARD LISTENERS ---
+        document.getElementById('keywords').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') runScan();
+        });
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') document.getElementById('modal').style.display = 'none';
+        });
+
+        // --- 2. MAIN SCAN FUNCTION ---
+        async function runScan() {
+            const btn = document.getElementById('scanBtn');
+            const list = document.getElementById('results');
+            const keywords = document.getElementById('keywords').value;
+
+            if (!keywords) return alert("Please enter a keyword!");
+
+            // UI Reset
+            btn.disabled = true; 
+            btn.innerText = "SCANNING...";
+            list.innerHTML = "<div style='text-align:center; padding:40px; color:#94a3b8;'>Scanning Pornhub, XNXX, XVideos, Reddit...<br><span style='font-size:12px'>(This may take up to 45s)</span></div>";
+
+            try {
+                const res = await fetch('/scan', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ keywords: keywords.split(',') })
+                });
+                
+                const data = await res.json();
+                
+                if (data.success) {
+                    allData = data.data || [];
+                    setupFilters(allData);
+                    renderList(allData);
+                } else {
+                    list.innerHTML = `<div style="color:red; text-align:center;">Server Error: ${data.error}</div>`;
+                }
+
+            } catch (e) {
+                list.innerHTML = `<div style="color:red; text-align:center;">Network Error: ${e.message}</div>`;
+            }
+            
+            btn.disabled = false; 
+            btn.innerText = "SCAN NETWORKS";
+        }
+
+        // --- 3. RENDERING ---
+        function renderList(items) {
+            const list = document.getElementById('results');
+            list.innerHTML = "";
+
+            if (items.length === 0) {
+                list.innerHTML = "<div style='text-align:center; padding:20px;'>No matches found.</div>";
+                return;
+            }
+
+            items.forEach(item => {
+                // Determine tag color
+                let tagClass = 'tag';
+                if(item.source === 'Pornhub') tagClass += ' tag-pornhub';
+                else if(item.source === 'XNXX') tagClass += ' tag-xnxx';
+                else if(item.source === 'XVideos') tagClass += ' tag-xvideos';
+                else if(item.source === 'Reddit') tagClass += ' tag-reddit';
+
+                const div = document.createElement('div');
+                div.className = 'finding-card';
+                div.innerHTML = `
+                    <div class="finding-info">
+                        <h3><span class="${tagClass}">${item.source}</span> ${item.title}</h3>
+                        <p>${item.date} • <a href="${item.url}" target="_blank" class="btn-view">${item.url}</a></p>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-capture" onclick="captureEvidence('${item.url}', '${item.source}')">📸 CAPTURE</button>
+                    </div>
+                `;
+                list.appendChild(div);
+            });
+        }
+
+        // --- 4. FILTERS ---
+        function setupFilters(items) {
+            const sources = [...new Set(items.map(i => i.source))];
+            const filterBar = document.getElementById('filterBar');
+            
+            // Keep "All" button, remove others
+            filterBar.innerHTML = '<button class="filter-btn active" onclick="filterResults(\'all\')">All Sources</button>';
+            filterBar.style.display = 'flex';
+
+            sources.forEach(source => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-btn';
+                btn.innerText = source;
+                btn.onclick = () => filterResults(source);
+                filterBar.appendChild(btn);
+            });
+        }
+
+        function filterResults(source) {
+            // Update active button visual
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.classList.remove('active');
+                if(b.innerText.includes(source) || (source === 'all' && b.innerText.includes('All'))) {
+                    b.classList.add('active');
+                }
+            });
+
+            if (source === 'all') renderList(allData);
+            else renderList(allData.filter(i => i.source === source));
+        }
+
+        // --- 5. CAPTURE LOGIC ---
+        async function captureEvidence(url, source) {
+            const btn = event.target;
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = "⏳...";
+
+            try {
+                const res = await fetch('/capture', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ url, source })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    document.getElementById('modalImg').src = data.image;
+                    document.getElementById('modal').style.display = 'flex';
+                    btn.innerText = "✅ DONE";
+                } else {
+                    alert("Capture Failed: " + data.error);
+                    btn.innerText = "❌ ERROR";
+                }
+            } catch (e) {
+                alert("Error: " + e.message);
+                btn.innerText = originalText;
+            }
+        }
+
+        function closeModal(e) { 
+            if(e.target.id === 'modal') document.getElementById('modal').style.display = 'none'; 
+        }
+    </script>
+</body>
+</html>
