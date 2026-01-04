@@ -22,14 +22,14 @@ app.post('/scan', async (req, res) => {
     }
 });
 
-// 2. CAPTURE ENDPOINT (Process Isolation)
+// 2. CAPTURE ENDPOINT (Atomic & isolated)
 app.post('/capture', async (req, res) => {
     const { url, source, title } = req.body;
     console.log(`📸 Capture Requested: ${url}`);
     
     let browser = null;
     try {
-        // Launch a lightweight instance
+        // Launch a fresh browser for EVERY request (prevents "stuck" state)
         browser = await chromium.launch({ 
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--single-process'] 
         });
@@ -40,16 +40,8 @@ app.post('/capture', async (req, res) => {
 
         const page = await context.newPage();
 
-        // Anti-Detect Cookies
-        if (source === 'Pornhub') {
-            await context.addCookies([
-                { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
-                { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' }
-            ]);
-        }
-
-        // Set a strict timeout so it doesn't hang forever
-        await page.goto(url, { waitUntil: 'load', timeout: 15000 });
+        // Hard timeout of 20 seconds. If it takes longer, it dies.
+        await page.goto(url, { waitUntil: 'load', timeout: 20000 });
         
         const screenshotBuffer = await page.screenshot({ fullPage: false });
         const base64Image = screenshotBuffer.toString('base64');
@@ -59,8 +51,9 @@ app.post('/capture', async (req, res) => {
         uploadScreenshot(screenshotBuffer, filename, process.env.DRIVE_FOLDER_ID)
             .catch(e => console.log(`   (Background) Drive Upload Skipped: ${e.message}`));
 
+        // KILL BROWSER IMMEDIATELY
         await browser.close();
-        browser = null; // Mark as closed
+        browser = null;
 
         res.json({ 
             success: true, 
@@ -70,7 +63,8 @@ app.post('/capture', async (req, res) => {
 
     } catch (error) {
         console.error("❌ Capture Failed:", error.message);
-        if (browser) await browser.close();
+        // Ensure browser is dead
+        if (browser) await browser.close(); 
         res.status(500).json({ success: false, error: "Capture failed: " + error.message });
     }
 });
