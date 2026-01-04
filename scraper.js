@@ -7,17 +7,17 @@ async function scanKeywords(keywords) {
     const context = await browser.newContext({
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
     });
-    const page = await context.newPage();
     
-    // Inject cookies for scanning too
+    // Inject cookies for scanning
     await context.addCookies([
         { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
         { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' }
     ]);
 
+    const page = await context.newPage();
     let allFindings = [];
 
-    // 1. TARGETED REDDIT LIST
+    // 1. TARGET SUBREDDITS
     const redditSubs = [
         'onlyfanshottest', 'onlyfans101', 'promotesyouronlyfans', 
         'onlyfansmoms', 'onlyfansmilfs', 'sultsofonlyfans',
@@ -25,7 +25,7 @@ async function scanKeywords(keywords) {
         'OnlyFansBusty', 'OnlyFansPetite'
     ];
 
-    // 2. STANDARD TUBE SITES
+    // 2. TUBE SITES
     const sites = [
         { 
             name: 'Pornhub', 
@@ -50,8 +50,7 @@ async function scanKeywords(keywords) {
         console.log(`🔎 [REDDIT] Deep scanning subreddits for "${term}"...`);
         for (const sub of redditSubs) {
             try {
-                // Search INSIDE specific subreddit
-                await page.goto(`https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(term)}&restrict_sr=on&sort=new`, { waitUntil: 'domcontentloaded', timeout: 8000 });
+                await page.goto(`https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(term)}&restrict_sr=on&sort=new`, { waitUntil: 'domcontentloaded', timeout: 6000 });
                 
                 const findings = await page.$$eval('.search-result-link', (els, sourceSub) => {
                     return els.map(el => {
@@ -66,7 +65,6 @@ async function scanKeywords(keywords) {
                         };
                     });
                 }, sub);
-                
                 if(findings.length > 0) allFindings.push(...findings);
             } catch (e) {}
         }
@@ -108,6 +106,7 @@ async function scanKeywords(keywords) {
     }
 
     await browser.close();
+    // De-duplicate results
     return [...new Map(allFindings.map(item => [item['url'], item])).values()];
 }
 
