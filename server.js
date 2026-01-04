@@ -9,12 +9,12 @@ const PORT = process.env.PORT || 8080;
 app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 
-// --- SEARCH ENDPOINT ---
+// --- SEARCH ENDPOINT (Updated to accept extraSubs) ---
 app.post('/scan', async (req, res) => {
-    const { keywords } = req.body;
+    const { keywords, extraSubs } = req.body;
     try {
-        console.log(`🔎 Incoming Scan: ${keywords}`);
-        const results = await scanKeywords(keywords);
+        console.log(`🔎 Scan: ${keywords} | Extra Subs: ${extraSubs || 'None'}`);
+        const results = await scanKeywords(keywords, extraSubs || []);
         res.json({ success: true, count: results.length, data: results });
     } catch (error) {
         console.error("Scan Error:", error);
@@ -38,7 +38,7 @@ app.post('/capture', async (req, res) => {
              viewport: { width: 1280, height: 720 }
         });
 
-        // 1. INJECT COOKIES (The "VIP Pass")
+        // 1. INJECT COOKIES
         const cookies = [];
         if (url.includes('pornhub')) {
             cookies.push(
@@ -59,16 +59,13 @@ app.post('/capture', async (req, res) => {
         // 2. LOAD PAGE
         try {
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-        } catch(e) {
-            console.log("   Page load timeout (continuing anyway)...");
-        }
+        } catch(e) { console.log("   Page load timeout (continuing)..."); }
         
-        // 3. FORCE CLICKERS (Brute Force)
+        // 3. FORCE CLICKERS
         try {
             if (source === 'Pornhub') {
                 await page.click('#accessAgeDisclaimerPHBtn', { timeout: 1500 }).catch(() => {});
                 await page.click('text="I am 18 or older - Enter"', { timeout: 1500 }).catch(() => {});
-                // DOM Removal (Delete the overlay HTML)
                 await page.evaluate(() => {
                     const overlay = document.getElementById('age-verification-container');
                     if(overlay) overlay.remove();
@@ -84,7 +81,7 @@ app.post('/capture', async (req, res) => {
                 await page.click('text="Enter"', { timeout: 1500 }).catch(() => {});
             }
             await page.waitForTimeout(1000);
-        } catch(e) { console.log("   Popup logic skipped."); }
+        } catch(e) {}
 
         // 4. SCREENSHOT
         const screenshotBuffer = await page.screenshot({ fullPage: false });
@@ -92,8 +89,7 @@ app.post('/capture', async (req, res) => {
         const filename = `EVIDENCE_${source}_${Date.now()}.png`;
 
         // Upload to Drive
-        uploadScreenshot(screenshotBuffer, filename, process.env.DRIVE_FOLDER_ID)
-            .catch(e => console.log(`   Drive Upload Error: ${e.message}`));
+        uploadScreenshot(screenshotBuffer, filename, process.env.DRIVE_FOLDER_ID).catch(e => {});
 
         await browser.close();
         res.json({ success: true, image: `data:image/png;base64,${base64Image}`, filename });

@@ -1,6 +1,7 @@
 const { chromium } = require('playwright');
 
-async function scanKeywords(keywords) {
+// Now accepts extraSubs parameter
+async function scanKeywords(keywords, extraSubs = []) {
     const browser = await chromium.launch({ 
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'] 
     });
@@ -17,13 +18,18 @@ async function scanKeywords(keywords) {
     const page = await context.newPage();
     let allFindings = [];
 
-    // 1. TARGET SUBREDDITS
-    const redditSubs = [
+    // 1. BUILD SUBREDDIT LIST
+    const defaultSubs = [
         'onlyfanshottest', 'onlyfans101', 'promotesyouronlyfans', 
         'onlyfansmoms', 'onlyfansmilfs', 'sultsofonlyfans',
         'OnlyFansAsstastic', 'leaked_content', 'OnlyFansPromotions',
         'OnlyFansBusty', 'OnlyFansPetite'
     ];
+    
+    // Merge and clean (remove "r/" if user typed it)
+    const cleanExtras = extraSubs.map(s => s.replace('r/', '').trim()).filter(s => s.length > 0);
+    // Use Set to remove duplicates
+    const finalRedditSubs = [...new Set([...defaultSubs, ...cleanExtras])];
 
     // 2. TUBE SITES
     const sites = [
@@ -46,25 +52,30 @@ async function scanKeywords(keywords) {
 
     for (const term of keywords) {
         
-        // A. REDDIT DEEP DIVE
-        console.log(`🔎 [REDDIT] Deep scanning subreddits for "${term}"...`);
-        for (const sub of redditSubs) {
+        // A. REDDIT SCAN
+        console.log(`🔎 [REDDIT] Scanning ${finalRedditSubs.length} subreddits for "${term}"...`);
+        for (const sub of finalRedditSubs) {
             try {
-                await page.goto(`https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(term)}&restrict_sr=on&sort=new`, { waitUntil: 'domcontentloaded', timeout: 6000 });
+                // Search INSIDE specific subreddit
+                await page.goto(`https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(term)}&restrict_sr=on&sort=new`, { waitUntil: 'domcontentloaded', timeout: 5000 });
                 
                 const findings = await page.$$eval('.search-result-link', (els, sourceSub) => {
                     return els.map(el => {
                         const titleEl = el.querySelector('a.search-title');
                         const thumbEl = el.querySelector('.search-result-icon img');
+                        const authorEl = el.querySelector('.author'); // Grab Author
+                        
                         return { 
                             title: `[r/${sourceSub}] ${titleEl?.innerText || "Post"}`, 
                             url: titleEl?.href || "", 
                             date: el.querySelector('.search-time time')?.innerText || "Recent", 
                             source: 'Reddit',
-                            thumb: thumbEl?.src || null
+                            thumb: thumbEl?.src || null,
+                            author: authorEl?.innerText || "Unknown"
                         };
                     });
                 }, sub);
+                
                 if(findings.length > 0) allFindings.push(...findings);
             } catch (e) {}
         }
@@ -106,7 +117,6 @@ async function scanKeywords(keywords) {
     }
 
     await browser.close();
-    // De-duplicate results
     return [...new Map(allFindings.map(item => [item['url'], item])).values()];
 }
 

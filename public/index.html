@@ -9,18 +9,21 @@
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; display:flex; flex-direction:column; align-items:center; min-height:100vh; }
         .container { width: 100%; max-width: 1000px; }
         
-        .search-box { background: var(--card); padding: 20px; border-radius: 12px; display: flex; gap: 10px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        input { flex: 1; padding: 12px; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 8px; outline:none; }
+        .search-panel { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .input-group { margin-bottom: 15px; }
+        .input-label { font-size: 12px; color: #94a3b8; margin-bottom: 5px; display: block; font-weight: bold; }
+        
+        input { width: 100%; padding: 12px; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 8px; outline:none; box-sizing: border-box; }
         input:focus { border-color: var(--accent); }
-        .btn-primary { background: var(--accent); color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight:bold; }
+        
+        .btn-primary { background: var(--accent); color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight:bold; width: 100%; margin-top: 10px; }
+        .btn-primary:hover { opacity:0.9; }
 
         /* FILTERS */
         .filter-section { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 20px; display:none; }
         .filter-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap:wrap; }
         .filter-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; width: 60px; }
-        
-        .filter-btn { background: transparent; color: #94a3b8; border: 1px solid #334155; padding: 5px 15px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
-        .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .filter-btn { background: transparent; color: #94a3b8; border: 1px solid #334155; padding: 5px 15px; border-radius: 20px; font-size: 13px; cursor: pointer; }
         .filter-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
 
         /* RESULTS */
@@ -45,11 +48,18 @@
 
 <div class="container">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-        <h2 style="margin:0;">🕵️‍♂️ LeakShield Hunter <span style="font-size:14px; color:#64748b; font-weight:normal; margin-left:10px;">v4.2 Stable</span></h2>
+        <h2 style="margin:0;">🕵️‍♂️ LeakShield Hunter <span style="font-size:14px; color:#64748b; font-weight:normal; margin-left:10px;">v5.0 Custom</span></h2>
     </div>
 
-    <div class="search-box">
-        <input type="text" id="keywords" placeholder="Enter keywords..." />
+    <div class="search-panel">
+        <div class="input-group">
+            <label class="input-label">KEYWORDS (Target Name)</label>
+            <input type="text" id="keywords" placeholder="e.g. Alexis Texas..." />
+        </div>
+        <div class="input-group">
+            <label class="input-label">ADDITIONAL SUBREDDITS (Optional)</label>
+            <input type="text" id="extraSubs" placeholder="e.g. AlexisTexas, Alexis_Fans (Comma separated)" />
+        </div>
         <button id="scanBtn" class="btn-primary" onclick="runScan()">SCAN NETWORKS</button>
     </div>
 
@@ -95,20 +105,27 @@
         const btn = document.getElementById('scanBtn');
         const list = document.getElementById('results');
         const keywords = document.getElementById('keywords').value;
+        const extraSubs = document.getElementById('extraSubs').value;
+
         if (!keywords) return alert("Enter a keyword");
 
         btn.disabled = true; btn.innerText = "SCANNING...";
-        list.innerHTML = "<div style='text-align:center; padding:50px; color:#94a3b8;'>🛰️ Scanning Deep Web & Socials...</div>";
+        list.innerHTML = "<div style='text-align:center; padding:50px; color:#94a3b8;'>🛰️ Scanning Target Subreddits & Tubes...</div>";
 
         try {
+            const payload = { 
+                keywords: keywords.split(','),
+                extraSubs: extraSubs ? extraSubs.split(',') : []
+            };
+
             const res = await fetch('/scan', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ keywords: keywords.split(',') })
+                body: JSON.stringify(payload)
             });
             const data = await res.json();
             
-            // Assign ID to prevent Button Mismatch
+            // Assign ID
             allData = (data.data || []).map((item, idx) => ({ ...item, id: idx }));
             
             document.getElementById('filterSection').style.display = 'block';
@@ -153,12 +170,18 @@
                 actionButton = `<button class="btn-capture" onclick="captureEvidence(${item.id}, '${item.url}', '${item.source}', this)">📸 CAPTURE</button>`;
             }
 
+            // Added Author display for Reddit results
+            let metaInfo = item.date;
+            if(item.source === 'Reddit' && item.author) {
+                metaInfo += ` • Posted by ${item.author}`;
+            }
+
             div.innerHTML = `
                 <div>
                     <div style="font-size:14px; font-weight:bold; margin-bottom:4px;">
                         <span class="tag tag-${item.source}">${item.source}</span> ${item.title}
                     </div>
-                    <div style="font-size:12px; color:#94a3b8;">${item.date} • <a href="${item.url}" target="_blank" style="color:#64748b">${item.url.substring(0,35)}...</a></div>
+                    <div style="font-size:12px; color:#94a3b8;">${metaInfo} • <a href="${item.url}" target="_blank" style="color:#64748b">Link</a></div>
                 </div>
                 <div>${actionButton}</div>
             `;
