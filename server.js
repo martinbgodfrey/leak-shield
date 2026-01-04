@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const { scanKeywords } = require('./scraper');
 const { chromium } = require('playwright');
@@ -9,6 +10,7 @@ const PORT = process.env.PORT || 8080;
 app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 
+// SEARCH ENDPOINT
 app.post('/scan', async (req, res) => {
     const { keywords } = req.body;
     try {
@@ -21,9 +23,9 @@ app.post('/scan', async (req, res) => {
     }
 });
 
-// CAPTURE ENDPOINT (With "Popup Killer")
+// CAPTURE ENDPOINT (Updated with "Popup Killer")
 app.post('/capture', async (req, res) => {
-    const { url, source, title } = req.body;
+    const { url, source } = req.body;
     console.log(`📸 Capture Requested: ${url}`);
     
     let browser = null;
@@ -37,33 +39,27 @@ app.post('/capture', async (req, res) => {
         });
 
         const page = await context.newPage();
-
+        
         // 1. Load Page
-        await page.goto(url, { waitUntil: 'load', timeout: 20000 });
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
         
-        // 2. POPUP KILLER (New Logic)
+        // 2. POPUP KILLER LOGIC
         try {
-            if (source === 'XNXX') {
-                // Clicks the "Straight : ENTER" or generic "Enter" button
-                await page.click('text="Straight"', { timeout: 2000 }).catch(() => {}); 
-                await page.click('text="ENTER"', { timeout: 2000 }).catch(() => {});
-                await page.click('.btn-danger', { timeout: 1000 }).catch(() => {}); // Sometimes it's a red button
+            if (source === 'Pornhub') {
+                // Click "I am 18 or older" or "Enter"
+                await page.click('#accessAgeDisclaimerPHBtn', { timeout: 2500 }).catch(() => {});
+                await page.click('text="I am 18 or older"', { timeout: 2500 }).catch(() => {});
+            } 
+            else if (source === 'XNXX') {
+                // Click the generic "Enter" or "Straight" button
+                await page.click('.btn-danger', { timeout: 2000 }).catch(() => {});
+                await page.click('text="Enter"', { timeout: 2000 }).catch(() => {});
             }
-            else if (source === 'Pornhub') {
-                await page.click('#accessAgeDisclaimerPHBtn', { timeout: 2000 }).catch(() => {});
-                await page.click('text="I am 18 or older"', { timeout: 2000 }).catch(() => {});
-            }
-            else if (source === 'XVideos') {
-                await page.click('#disclaimer_container a', { timeout: 2000 }).catch(() => {});
-            }
-            
-            // Wait a split second for the modal to fade out
-            await page.waitForTimeout(1500);
-            
-        } catch (e) {
-            console.log("   Popup interaction skipped/failed (might not exist).");
-        }
-        
+            // Wait for modal to fade
+            await page.waitForTimeout(1000);
+        } catch(e) { console.log("   Popup logic skipped."); }
+
+        // 3. Take Screenshot
         const screenshotBuffer = await page.screenshot({ fullPage: false });
         const base64Image = screenshotBuffer.toString('base64');
         
@@ -72,17 +68,11 @@ app.post('/capture', async (req, res) => {
             .catch(e => console.log(`   (Background) Drive Upload Skipped: ${e.message}`));
 
         await browser.close();
-        browser = null;
-
-        res.json({ 
-            success: true, 
-            image: `data:image/png;base64,${base64Image}`,
-            filename: filename 
-        });
+        res.json({ success: true, image: `data:image/png;base64,${base64Image}`, filename });
 
     } catch (error) {
         if (browser) await browser.close();
-        res.status(500).json({ success: false, error: "Capture failed: " + error.message });
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

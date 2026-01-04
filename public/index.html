@@ -1,233 +1,64 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepScan // Investigator</title>
-    <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #38bdf8; --green: #22c55e; --warn: #fbbf24; }
-        body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif; padding: 20px; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        
-        /* TOP PANEL (EVIDENCE) */
-        .evidence-panel { 
-            background: #1e293b; border: 1px solid #38bdf8; border-radius: 8px; padding: 20px; 
-            margin-bottom: 20px; display: none; align-items: center; gap: 20px; box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
+<script>
+    let allData = [];
+    let currentEvidence = {};
+
+    // 1. ENTER KEY LISTENER (Search)
+    document.getElementById('keywords').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            runScan();
         }
-        .evidence-thumb { width: 150px; height: 100px; object-fit: cover; border: 1px solid #fff; }
-        
-        /* CONTROLS */
-        .controls { display: flex; gap: 10px; margin-bottom: 15px; }
-        input { flex: 1; padding: 12px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 4px; }
-        button#scanBtn { background: var(--accent); color: black; border:none; padding: 12px 20px; font-weight:bold; cursor:pointer; }
-        
-        /* FILTERS (RESTORED) */
-        .filter-section { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; padding-bottom: 15px; border-bottom: 1px solid #334155; }
-        .filter-btn { 
-            background: var(--card); border: 1px solid #475569; color: #94a3b8; 
-            padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
+    });
+
+    // 2. ESC KEY LISTENER (Close Modal)
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.getElementById('modal').style.display = 'none';
         }
-        .filter-btn:hover { border-color: var(--accent); color: var(--text); }
-        .filter-btn.active { background: var(--accent); color: #000; border-color: var(--accent); font-weight: bold; }
-        .filter-btn.warn { border-color: var(--warn); color: var(--warn); }
-        .filter-btn.warn.active { background: var(--warn); color: #000; }
+    });
+
+    async function runScan() {
+        const btn = document.getElementById('scanBtn');
+        const list = document.getElementById('results');
         
-        /* RESULTS LIST */
-        .card { background: #1e293b; padding: 15px; margin-bottom: 10px; border-radius: 6px; display: grid; grid-template-columns: 1fr auto auto; gap: 20px; align-items: center; border-left: 4px solid #334155; }
-        .card.fresh { border-left-color: var(--accent); background: #252836; }
-        .card.old { opacity: 0.7; }
-        
-        .btn-capture { background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; cursor: pointer; font-weight: bold; }
-        .btn-loading { cursor: not-allowed; opacity: 0.5; }
+        btn.disabled = true; 
+        btn.innerText = "SCANNING...";
+        list.innerHTML = "<div style='text-align:center; padding:40px; color:#94a3b8;'>Scanning networks... (This may take 30s)</div>";
 
-        /* MODAL */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); justify-content: center; align-items: center; z-index: 999; }
-        .modal img { max-width: 90%; max-height: 80vh; border: 2px solid #fff; }
-        .modal-controls { position: absolute; bottom: 30px; display: flex; gap: 20px; }
-        button { cursor: pointer; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1 style="margin-top:0">DEEPSCAN // INVESTIGATOR</h1>
-
-        <div id="evidencePanel" class="evidence-panel">
-            <img id="latestThumb" class="evidence-thumb" src="">
-            <div style="flex:1">
-                <h3 style="margin:0; color: var(--accent);">CAPTURE SUCCESSFUL</h3>
-                <p id="latestFilename" style="font-size: 0.9rem; color: #94a3b8; margin: 5px 0;">Filename...</p>
-                <div style="display:flex; gap:10px; margin-top:10px;">
-                    <button onclick="openModalFromPanel()" style="background:var(--green); border:none; padding:8px 16px; color:black; font-weight:bold;">👁️ VIEW</button>
-                    <a id="latestDL" href="#" download><button style="background:#334155; border:1px solid #475569; padding:8px 16px; color:white;">⬇️ DOWNLOAD</button></a>
-                </div>
-            </div>
-        </div>
-
-        <div class="controls">
-            <input type="text" id="keywords" value="alexis texas" placeholder="Enter keywords...">
-            <button id="scanBtn" onclick="runScan()">SCAN NETWORKS</button>
-        </div>
-
-        <div class="filter-section" id="filterBar" style="display:none;">
-            <button class="filter-btn active" onclick="setDateFilter('recent', this)">Recent (1 Year)</button>
-            <button class="filter-btn" onclick="setDateFilter('24h', this)">Last 24 Hours</button>
-            <button class="filter-btn" onclick="setDateFilter('month', this)">Past Month</button>
-            <button class="filter-btn warn" onclick="setDateFilter('all', this)">📂 Show Archives</button>
-            <div style="width:1px; background:#475569; margin:0 10px;"></div>
-            <span id="sourceButtons"></span>
-        </div>
-
-        <div id="status" style="margin-bottom:10px; color:#94a3b8;"></div>
-        <div id="results"></div>
-    </div>
-
-    <div id="modal" class="modal" onclick="closeModal(event)">
-        <div style="display:flex; flex-direction:column; align-items:center;">
-            <img id="modalImg" src="">
-            <div class="modal-controls">
-                <button onclick="document.getElementById('modal').style.display='none'" style="padding:10px 20px; background:white; border:none;">CLOSE</button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        let allData = [];
-        let currentFilters = { date: 'recent', source: 'all' };
-        let currentEvidence = { img: null, filename: null };
-
-        async function runScan() {
-            const btn = document.getElementById('scanBtn');
-            const list = document.getElementById('results');
-            btn.disabled = true; btn.innerText = "SCANNING...";
-            list.innerHTML = "<div style='text-align:center; padding:40px'>Scanning networks...</div>";
-            document.getElementById('filterBar').style.display = 'none';
-
-            try {
-                const res = await fetch('/scan', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ keywords: document.getElementById('keywords').value.split(',') })
-                });
-                const data = await res.json();
-                allData = data.data || [];
-                
-                // Setup Filters
-                generateSourceButtons(allData);
-                document.getElementById('filterBar').style.display = 'flex';
-                applyFilters(); // Render initial list
-
-            } catch (e) { list.innerHTML = "Error: " + e.message; }
-            btn.disabled = false; btn.innerText = "SCAN NETWORKS";
-        }
-
-        function generateSourceButtons(data) {
-            const container = document.getElementById('sourceButtons');
-            container.innerHTML = '<button class="filter-btn active" onclick="setSourceFilter(\'all\', this)">All Sources</button>';
-            [...new Set(data.map(i => i.source))].sort().forEach(source => {
-                const btn = document.createElement('button');
-                btn.className = 'filter-btn';
-                btn.innerText = source;
-                btn.onclick = () => setSourceFilter(source, btn);
-                container.appendChild(btn);
+        try {
+            const res = await fetch('/scan', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ keywords: document.getElementById('keywords').value.split(',') })
             });
-        }
-
-        function setDateFilter(mode, btn) {
-            currentFilters.date = mode;
-            document.querySelectorAll('#filterBar > .filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+            const data = await res.json();
+            allData = data.data || [];
+            
+            // Setup Filters (Updated to be hidden initially)
+            document.getElementById('filterBar').style.display = 'flex';
+            generateSourceButtons(allData);
             applyFilters();
+
+        } catch (e) {
+            list.innerHTML = `<div style="color:red; text-align:center;">Error: ${e.message}</div>`;
         }
+        btn.disabled = false; 
+        btn.innerText = "SCAN NETWORKS";
+    }
 
-        function setSourceFilter(source, btn) {
-            currentFilters.source = source;
-            document.querySelectorAll('#sourceButtons .filter-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            applyFilters();
-        }
+    // ... (Keep existing generateSourceButtons, setDateFilter, etc.) ...
+    
+    // ... (Keep existing capture() function) ...
 
-        function applyFilters() {
-            const filtered = allData.filter(item => {
-                const d = item.date.toLowerCase();
-                if (currentFilters.source !== 'all' && item.source !== currentFilters.source) return false;
-
-                if (currentFilters.date === 'recent') {
-                    if (d.match(/[2-9]\s+years/)) return false; 
-                    if (d.includes('201') || d.includes('2020') || d.includes('2021')) return false;
-                }
-                if (currentFilters.date === '24h') return d.includes('minute') || d.includes('hour') || d.includes('now') || d === '1 day ago';
-                if (currentFilters.date === 'month') return d.includes('day') || d.includes('week') || d.includes('month');
-
-                return true;
-            });
-
-            document.getElementById('status').innerText = `${filtered.length} Results`;
-            renderList(filtered);
-        }
-
-        function renderList(items) {
-            const list = document.getElementById('results');
-            list.innerHTML = "";
-            items.forEach(item => {
-                const isFresh = item.date.includes('hour') || item.date.includes('day') || item.date.includes('min');
-                const isOld = item.date.includes('year');
-                
-                list.innerHTML += `
-                    <div class="card ${isFresh ? 'fresh' : ''} ${isOld ? 'old' : ''}">
-                        <div>
-                            <div style="font-weight:bold; color: ${isFresh ? '#38bdf8' : 'white'}; margin-bottom:4px;">${item.title}</div>
-                            <div style="font-size:0.8rem; color:#94a3b8;">
-                                ${isFresh ? '🔥' : ''} ${item.url}
-                            </div>
-                        </div>
-                        <div style="text-align:right; font-size:0.85rem; color:#cbd5e1;">
-                            <div>${item.source}</div>
-                            <div style="color:#64748b">${item.date}</div>
-                        </div>
-                        <button class="btn-capture" onclick="capture(this, '${item.url}', '${item.source}')">📸 CAPTURE</button>
-                    </div>
-                `;
-            });
-        }
-
-        async function capture(btn, url, source) {
-            btn.innerText = "⏳...";
-            btn.classList.add('btn-loading');
-            btn.disabled = true;
-
-            try {
-                const res = await fetch('/capture', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ url, source })
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    btn.innerText = "✅ DONE";
-                    currentEvidence.img = data.image;
-                    currentEvidence.filename = data.filename;
-                    document.getElementById('latestThumb').src = data.image;
-                    document.getElementById('latestFilename').innerText = data.filename;
-                    document.getElementById('latestDL').href = data.image;
-                    document.getElementById('latestDL').download = data.filename;
-                    document.getElementById('evidencePanel').style.display = 'flex';
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                } else { throw new Error(data.error); }
-            } catch (e) {
-                btn.innerText = "❌ FAIL";
-                alert("Capture Failed: " + e.message);
-            } finally {
-                setTimeout(() => { btn.disabled = false; btn.innerText = "📸 CAPTURE"; btn.classList.remove('btn-loading'); }, 3000);
-            }
-        }
-
-        function openModalFromPanel() {
-            if(!currentEvidence.img) return;
-            document.getElementById('modalImg').src = currentEvidence.img;
-            document.getElementById('modal').style.display = 'flex';
-        }
-        function closeModal(e) { if(e.target.id === 'modal') document.getElementById('modal').style.display = 'none'; }
-    </script>
-</body>
-</html>
+    function openModalFromPanel() {
+        if(!currentEvidence.img) return;
+        document.getElementById('modalImg').src = currentEvidence.img;
+        document.getElementById('modal').style.display = 'flex';
+    }
+    
+    // Close modal on click outside image
+    function closeModal(e) { 
+        if(e.target.id === 'modal') document.getElementById('modal').style.display = 'none'; 
+    }
+    
+    // ... (Rest of existing render logic) ...
+</script>
