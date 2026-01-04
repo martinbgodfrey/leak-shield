@@ -9,7 +9,6 @@ const PORT = process.env.PORT || 8080;
 app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 
-// 1. SEARCH ENDPOINT
 app.post('/scan', async (req, res) => {
     const { keywords } = req.body;
     try {
@@ -22,14 +21,13 @@ app.post('/scan', async (req, res) => {
     }
 });
 
-// 2. CAPTURE ENDPOINT (Atomic & isolated)
+// CAPTURE ENDPOINT (With "Popup Killer")
 app.post('/capture', async (req, res) => {
     const { url, source, title } = req.body;
     console.log(`📸 Capture Requested: ${url}`);
     
     let browser = null;
     try {
-        // Launch a fresh browser for EVERY request (prevents "stuck" state)
         browser = await chromium.launch({ 
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--single-process'] 
         });
@@ -40,18 +38,39 @@ app.post('/capture', async (req, res) => {
 
         const page = await context.newPage();
 
-        // Hard timeout of 20 seconds. If it takes longer, it dies.
+        // 1. Load Page
         await page.goto(url, { waitUntil: 'load', timeout: 20000 });
+        
+        // 2. POPUP KILLER (New Logic)
+        try {
+            if (source === 'XNXX') {
+                // Clicks the "Straight : ENTER" or generic "Enter" button
+                await page.click('text="Straight"', { timeout: 2000 }).catch(() => {}); 
+                await page.click('text="ENTER"', { timeout: 2000 }).catch(() => {});
+                await page.click('.btn-danger', { timeout: 1000 }).catch(() => {}); // Sometimes it's a red button
+            }
+            else if (source === 'Pornhub') {
+                await page.click('#accessAgeDisclaimerPHBtn', { timeout: 2000 }).catch(() => {});
+                await page.click('text="I am 18 or older"', { timeout: 2000 }).catch(() => {});
+            }
+            else if (source === 'XVideos') {
+                await page.click('#disclaimer_container a', { timeout: 2000 }).catch(() => {});
+            }
+            
+            // Wait a split second for the modal to fade out
+            await page.waitForTimeout(1500);
+            
+        } catch (e) {
+            console.log("   Popup interaction skipped/failed (might not exist).");
+        }
         
         const screenshotBuffer = await page.screenshot({ fullPage: false });
         const base64Image = screenshotBuffer.toString('base64');
         
-        // Background Upload
         const filename = `EVIDENCE_${source}_${Date.now()}.png`;
         uploadScreenshot(screenshotBuffer, filename, process.env.DRIVE_FOLDER_ID)
             .catch(e => console.log(`   (Background) Drive Upload Skipped: ${e.message}`));
 
-        // KILL BROWSER IMMEDIATELY
         await browser.close();
         browser = null;
 
@@ -62,9 +81,7 @@ app.post('/capture', async (req, res) => {
         });
 
     } catch (error) {
-        console.error("❌ Capture Failed:", error.message);
-        // Ensure browser is dead
-        if (browser) await browser.close(); 
+        if (browser) await browser.close();
         res.status(500).json({ success: false, error: "Capture failed: " + error.message });
     }
 });
