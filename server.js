@@ -1,5 +1,6 @@
 const express = require('express');
 const { scanKeywords } = require('./scraper');
+const { generateDorks } = require('./dorks'); // New Dorking Module
 const { chromium } = require('playwright');
 const { uploadScreenshot } = require('./drive');
 
@@ -9,11 +10,11 @@ const PORT = process.env.PORT || 8080;
 app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 
-// --- SEARCH ENDPOINT ---
+// --- 1. STANDARD SCAN (Existing) ---
 app.post('/scan', async (req, res) => {
     const { keywords, extraSubs } = req.body;
     try {
-        console.log(`🔎 Scan: ${keywords} | Extra Subs: ${extraSubs || 'None'}`);
+        console.log(`🔎 Standard Scan: ${keywords}`);
         const results = await scanKeywords(keywords, extraSubs || []);
         res.json({ success: true, count: results.length, data: results });
     } catch (error) {
@@ -22,40 +23,71 @@ app.post('/scan', async (req, res) => {
     }
 });
 
-// --- CAPTURE ENDPOINT (Restored Stability) ---
+// --- 2. DEEP RESEARCH SCAN (New Feature) ---
+app.post('/research', async (req, res) => {
+    const { target } = req.body; // Expects a single target username/name
+    try {
+        console.log(`🕵️‍♂️ Deep Research Initiated for: ${target}`);
+        
+        // Generate Dorks
+        const dorkQueries = generateDorks(target);
+        console.log(`   Generated ${dorkQueries.length} Deep Search Vectors.`);
+
+        let allResults = [];
+
+        // Run scans sequentially to avoid rate limits
+        for (const query of dorkQueries) {
+            console.log(`   Dorking: ${query}`);
+            try {
+                // Reuse the existing scraper but with advanced queries
+                const results = await scanKeywords([query], []); 
+                // Tag results with the dork type
+                const taggedResults = results.map(r => ({ ...r, source_dork: query }));
+                allResults = allResults.concat(taggedResults);
+            } catch (e) {
+                console.log(`   Skipping dork "${query}" due to error.`);
+            }
+        }
+
+        // Deduplicate results by URL
+        const uniqueResults = Array.from(new Set(allResults.map(a => a.link)))
+            .map(link => allResults.find(a => a.link === link));
+
+        console.log(`✅ Research Complete. Found ${uniqueResults.length} distinct leads.`);
+        res.json({ success: true, count: uniqueResults.length, data: uniqueResults });
+
+    } catch (error) {
+        console.error("Research Error:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- 3. CAPTURE ENDPOINT (Solid Configuration) ---
 app.post('/capture', async (req, res) => {
     const { url, source } = req.body;
     console.log(`📸 Capture Requested: ${url}`);
     
     let browser = null;
     try {
-        // 1. LAUNCH BROWSER (Standard Config)
         browser = await chromium.launch({ 
-            args: [
-                '--no-sandbox', 
-                '--disable-setuid-sandbox', 
-                '--disable-dev-shm-usage',
-                '--disable-blink-features=AutomationControlled' // Hides "Bot" status
-            ] 
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-blink-features=AutomationControlled'] 
         });
         
-        // 2. CONTEXT (Removed "Trick" Headers to fix Pornhub)
+        // Clean Headers (Fixes Pornhub Redirect)
         const context = await browser.newContext({
              userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
              viewport: { width: 1920, height: 1080 },
              deviceScaleFactor: 1
         });
 
-        // 3. COOKIES (The "Working" List)
+        // Cookies (The Working List)
         const cookies = [];
         const domain = new URL(url).hostname.replace('www.', '');
 
-        // Reddit
         if (url.includes('reddit')) {
             cookies.push({ name: 'over18', value: '1', domain: '.reddit.com', path: '/' });
         }
         
-        // Tube Sites (PH, XNXX, XVideos)
         if (url.includes('pornhub')) {
             cookies.push(
                 { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
@@ -72,21 +104,19 @@ app.post('/capture', async (req, res) => {
         await context.addCookies(cookies);
         const page = await context.newPage();
 
-        // 4. LOAD PAGE
+        // Load Page
         try {
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
         } catch(e) { console.log("   Page load timeout (continuing)..."); }
         
-        // 5. INTERACTION LOGIC (Faster & Safer)
+        // Smart Interaction
         try {
-            // REDDIT: Try to expand, but don't wait long
+            // Reddit Expand (Safe Mode)
             if (url.includes('reddit')) {
-                try {
-                    await page.click('div[data-test-id="post-content"] img', { timeout: 500 });
-                } catch(e) {} // Ignore if not clickable
+                try { await page.click('div[data-test-id="post-content"] img', { timeout: 500 }); } catch(e) {}
             }
 
-            // TUBE SITES: Click "Enter" if visible
+            // Tube Clicker
             if (url.includes('xnxx') || url.includes('xvideos') || url.includes('pornhub')) {
                 const selectors = ['#disclaimer_btn_enter', '#disclaimer-block a', '.disclaimer-btn', 'button:has-text("Enter")'];
                 for (const sel of selectors) {
@@ -94,20 +124,16 @@ app.post('/capture', async (req, res) => {
                 }
             }
             
-            // Wait briefly for settling
             await page.waitForTimeout(1500);
-
-            // ZOOM (80%)
             await page.evaluate(() => { document.body.style.zoom = "0.8"; });
 
         } catch(e) { console.log("Interaction Error:", e.message); }
 
-        // 6. CAPTURE
+        // Screenshot
         const screenshotBuffer = await page.screenshot({ fullPage: false });
         const base64Image = screenshotBuffer.toString('base64');
         const filename = `EVIDENCE_${source}_${Date.now()}.png`;
 
-        // Upload
         uploadScreenshot(screenshotBuffer, filename, process.env.DRIVE_FOLDER_ID).catch(e => {});
 
         await browser.close();
