@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 8080;
 app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 
-// --- SEARCH ENDPOINT (Updated to accept extraSubs) ---
+// --- SEARCH ENDPOINT ---
 app.post('/scan', async (req, res) => {
     const { keywords, extraSubs } = req.body;
     try {
@@ -22,7 +22,7 @@ app.post('/scan', async (req, res) => {
     }
 });
 
-// --- CAPTURE ENDPOINT (Nuclear Popup Killer) ---
+// --- CAPTURE ENDPOINT (Patch: Added Reddit Bypass) ---
 app.post('/capture', async (req, res) => {
     const { url, source } = req.body;
     console.log(`📸 Capture Requested: ${url}`);
@@ -38,8 +38,15 @@ app.post('/capture', async (req, res) => {
              viewport: { width: 1280, height: 720 }
         });
 
-        // 1. INJECT COOKIES
+        // 1. INJECT COOKIES (CRITICAL FIX)
         const cookies = [];
+        
+        // Fix for Reddit "Over 18" Splash Screen
+        if (url.includes('reddit.com')) {
+            cookies.push({ name: 'over18', value: '1', domain: '.reddit.com', path: '/' });
+        }
+        
+        // Tube Site Bypasses
         if (url.includes('pornhub')) {
             cookies.push(
                 { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
@@ -61,24 +68,23 @@ app.post('/capture', async (req, res) => {
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
         } catch(e) { console.log("   Page load timeout (continuing)..."); }
         
-        // 3. FORCE CLICKERS
+        // 3. FORCE CLICKERS (Backup if cookies fail)
         try {
-            if (source === 'Pornhub') {
+            if (url.includes('reddit')) {
+                // Click "Yes" or "Continue" on Reddit splash
+                await page.click('button:has-text("Yes")', { timeout: 1000 }).catch(() => {});
+                await page.click('button:has-text("Continue")', { timeout: 1000 }).catch(() => {});
+                await page.click('form[action="/over18"] button', { timeout: 1000 }).catch(() => {});
+            }
+            else if (source === 'Pornhub') {
                 await page.click('#accessAgeDisclaimerPHBtn', { timeout: 1500 }).catch(() => {});
                 await page.click('text="I am 18 or older - Enter"', { timeout: 1500 }).catch(() => {});
-                await page.evaluate(() => {
-                    const overlay = document.getElementById('age-verification-container');
-                    if(overlay) overlay.remove();
-                });
             } 
             else if (source === 'XVideos') {
-                await page.click('.disclaimer-btn', { timeout: 1500 }).catch(() => {});
                 await page.click('#disclaimer_btn_enter', { timeout: 1500 }).catch(() => {});
-                await page.click('text="Enter"', { timeout: 1500 }).catch(() => {});
             }
             else if (source === 'XNXX') {
                 await page.click('#disclaimer-block a', { timeout: 1500 }).catch(() => {});
-                await page.click('text="Enter"', { timeout: 1500 }).catch(() => {});
             }
             await page.waitForTimeout(1000);
         } catch(e) {}
