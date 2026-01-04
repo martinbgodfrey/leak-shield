@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 
 async function scanKeywords(keywords) {
-    console.log(`🚀 Starting ROBUST SCAN (Fixed XNXX & Pornhub)...`);
+    console.log(`🚀 Starting TARGETED SCAN (Specific Subreddits + Tube Sites)...`);
     
     const browser = await chromium.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
@@ -15,15 +15,24 @@ async function scanKeywords(keywords) {
     const page = await context.newPage();
     let allFindings = [];
 
+    // --- TARGETED SUBREDDIT LIST ---
+    const redditSubs = [
+        'CelebNSFW', 'WatchItForThePlot', 'nsfw', 'BonerMaterial', 
+        'pornid', 'TipOfMyPenis', 'NSFW_GIF', 'leaked_content'
+    ];
+
     const sites = [
         { 
             name: 'Erome', 
             searchUrl: (k, p) => `https://www.erome.com/search?q=${encodeURIComponent(k)}&page=${p}`, 
             container: '#room_results .album-link, .video-link' 
         },
+        // NEW REDDIT LOGIC: Generates a search URL for specific subreddits
         { 
             name: 'Reddit', 
-            searchUrl: (k, p) => `https://old.reddit.com/search?q=${encodeURIComponent(k)}&sort=new`, 
+            type: 'subreddit', // Special flag
+            subs: redditSubs,
+            searchUrl: (k, sub) => `https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(k)}&restrict_sr=on&sort=relevance&t=all`, 
             container: '.search-result-link' 
         },
         { 
@@ -60,96 +69,40 @@ async function scanKeywords(keywords) {
 
     for (const site of sites) {
         for (const term of keywords) {
-            for (let pageNum = 1; pageNum <= 3; pageNum++) {
-                if (site.name === 'Reddit' && pageNum > 1) continue;
+            
+            // Handle Reddit (Loop through subreddits instead of pages)
+            if (site.name === 'Reddit') {
+                for (const sub of site.subs) {
+                    try {
+                        console.log(`🔎 [Reddit] Scanning r/${sub} for "${term}"...`);
+                        await page.goto(site.searchUrl(term, sub), { waitUntil: 'domcontentloaded', timeout: 15000 });
+                        
+                        const findings = await extractFindings(page, site.name, site.container);
+                        allFindings = [...allFindings, ...findings];
+                    } catch (e) {
+                         // Ignore empty subreddits
+                    }
+                }
+                continue; // Move to next site
+            }
 
+            // Handle Standard Sites (Page Loop)
+            for (let pageNum = 1; pageNum <= 3; pageNum++) {
                 try {
                     console.log(`🔎 [${site.name}] Checking "${term}" (Page ${pageNum})...`);
-                    const url = site.searchUrl(term, pageNum);
-                    
-                    // Increased timeout for slow proxies/sites
-                    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
-                    
-                    // --- AGGRESSIVE AGE GATE HANDLING ---
+                    await page.goto(site.searchUrl(term, pageNum), { waitUntil: 'domcontentloaded', timeout: 25000 });
+
+                    // Age Gate (Pornhub)
                     if (site.name === 'Pornhub') {
                         try { 
-                            // Try multiple selectors for the "I am 18" button
                             if (await page.$('#accessAgeDisclaimerPHBtn')) await page.click('#accessAgeDisclaimerPHBtn');
                             else if (await page.$('.age-verification-container button')) await page.click('.age-verification-container button');
-                            await page.waitForTimeout(500); // Give it a moment to clear
-                        } catch(e){
-                            // Ignore click errors, sometimes it's not there
-                        }
+                            await page.waitForTimeout(500); 
+                        } catch(e){}
                     }
 
-                    const findings = await page.$$eval(site.container, (els, siteName) => {
-                        return els.map(el => {
-                            let title = "";
-                            let link = "";
-                            let date = "";
-
-                            // --- IMPROVED EXTRACTORS ---
-                            if (siteName === 'Erome') {
-                                title = el.querySelector('.album-title')?.innerText?.trim();
-                                link = el.getAttribute('href') || el.parentElement?.getAttribute('href');
-                                date = el.innerText.match(/(\d+\s\w+\sago)/)?.[0];
-                            }
-                            else if (siteName === 'Reddit') {
-                                title = el.querySelector('a.search-title')?.innerText?.trim();
-                                link = el.querySelector('a.search-title')?.getAttribute('href');
-                                date = el.querySelector('.search-time time')?.innerText;
-                            }
-                            else if (siteName === 'Pornhub') {
-                                // Try two places for title to capture "Recommended" and "List" views
-                                const linkObj = el.querySelector('.title a') || el.querySelector('a.linkVideoThumb');
-                                title = linkObj?.getAttribute('title') || linkObj?.innerText?.trim();
-                                link = "https://pornhub.com" + linkObj?.getAttribute('href');
-                                date = el.querySelector('.added')?.innerText?.trim();
-                            }
-                            else if (siteName === 'SpankBang') {
-                                const linkObj = el.querySelector('.t');
-                                title = linkObj?.innerText?.trim(); 
-                                link = "https://spankbang.com" + linkObj?.getAttribute('href');
-                                date = el.innerText.match(/(\d+\s\w+\sago)/)?.[0];
-                            }
-                            else if (siteName === 'RedTube') {
-                                const linkObj = el.querySelector('a.video_title');
-                                title = linkObj?.getAttribute('title') || linkObj?.innerText?.trim();
-                                link = "https://redtube.com" + el.querySelector('a.video_link')?.getAttribute('href');
-                                date = el.querySelector('.added_time')?.innerText?.trim();
-                            }
-                            else if (siteName === 'XHamster') {
-                                title = el.querySelector('.video-thumb__title')?.innerText?.trim();
-                                link = el.querySelector('a.video-thumb__link')?.getAttribute('href');
-                                date = el.querySelector('.video-thumb__upload-time')?.innerText?.trim();
-                            }
-                            else if (siteName === 'XVideos') {
-                                const linkTag = el.querySelector('p.title a');
-                                title = linkTag?.getAttribute('title') || linkTag?.innerText?.trim();
-                                link = linkTag?.getAttribute('href');
-                                if (link && !link.startsWith('http')) link = "https://xvideos.com" + link;
-                                date = el.innerText.match(/(\d+\s\w+\sago)/)?.[0];
-                            }
-                            else if (siteName === 'XNXX') {
-                                // FIX: Look inside .thumb-under p.title or just the 'a' title
-                                const linkTag = el.querySelector('.thumb-under a') || el.querySelector('a');
-                                title = linkTag?.getAttribute('title') || el.querySelector('.thumb-under')?.innerText?.split('\n')[0];
-                                link = linkTag?.getAttribute('href');
-                                if (link && !link.startsWith('http')) link = "https://xnxx.com" + link;
-                                date = el.innerText.match(/(\d+\s\w+\sago)/)?.[0];
-                            }
-
-                            // Fallbacks
-                            if (!title) title = "Unknown Video";
-                            if (!date) date = "Check Link";
-                            
-                            return { title, url: link, date, source: siteName };
-                        });
-                    }, site.name);
-
-                    // Robust Filter: Ensure URL exists
-                    const validFindings = findings.filter(f => f && f.url && f.url.length > 5);
-                    allFindings = [...allFindings, ...validFindings];
+                    const findings = await extractFindings(page, site.name, site.container);
+                    allFindings = [...allFindings, ...findings];
 
                 } catch (e) {
                     console.log(`   Skipping [${site.name}] Page ${pageNum}: ${e.message}`);
@@ -164,6 +117,75 @@ async function scanKeywords(keywords) {
     const uniqueResults = [...new Map(allFindings.map(item => [item['url'], item])).values()];
     console.log(`✅ Extraction Complete. Found ${uniqueResults.length} items.`);
     return uniqueResults;
+}
+
+// Helper function to keep the main loop clean
+async function extractFindings(page, siteName, container) {
+    const findings = await page.$$eval(container, (els, siteName) => {
+        return els.map(el => {
+            let title = "";
+            let link = "";
+            let date = "";
+
+            if (siteName === 'Erome') {
+                title = el.querySelector('.album-title')?.innerText?.trim();
+                link = el.getAttribute('href') || el.parentElement?.getAttribute('href');
+                date = el.innerText.match(/(\d+\s\w+\sago)/)?.[0];
+            }
+            else if (siteName === 'Reddit') {
+                title = el.querySelector('a.search-title')?.innerText?.trim();
+                link = el.querySelector('a.search-title')?.getAttribute('href');
+                date = el.querySelector('.search-time time')?.innerText;
+                // Add Subreddit to title for clarity
+                const sub = el.querySelector('.search-subreddit-link')?.innerText;
+                if (sub) title = `[${sub}] ${title}`;
+            }
+            else if (siteName === 'Pornhub') {
+                const linkObj = el.querySelector('.title a') || el.querySelector('a.linkVideoThumb');
+                title = linkObj?.getAttribute('title') || linkObj?.innerText?.trim();
+                link = "https://pornhub.com" + linkObj?.getAttribute('href');
+                date = el.querySelector('.added')?.innerText?.trim();
+            }
+            else if (siteName === 'SpankBang') {
+                const linkObj = el.querySelector('.t');
+                title = linkObj?.innerText?.trim(); 
+                link = "https://spankbang.com" + linkObj?.getAttribute('href');
+                date = el.innerText.match(/(\d+\s\w+\sago)/)?.[0];
+            }
+            else if (siteName === 'RedTube') {
+                const linkObj = el.querySelector('a.video_title');
+                title = linkObj?.getAttribute('title') || linkObj?.innerText?.trim();
+                link = "https://redtube.com" + el.querySelector('a.video_link')?.getAttribute('href');
+                date = el.querySelector('.added_time')?.innerText?.trim();
+            }
+            else if (siteName === 'XHamster') {
+                title = el.querySelector('.video-thumb__title')?.innerText?.trim();
+                link = el.querySelector('a.video-thumb__link')?.getAttribute('href');
+                date = el.querySelector('.video-thumb__upload-time')?.innerText?.trim();
+            }
+            else if (siteName === 'XVideos') {
+                const linkTag = el.querySelector('p.title a');
+                title = linkTag?.getAttribute('title') || linkTag?.innerText?.trim();
+                link = linkTag?.getAttribute('href');
+                if (link && !link.startsWith('http')) link = "https://xvideos.com" + link;
+                date = el.innerText.match(/(\d+\s\w+\sago)/)?.[0];
+            }
+            else if (siteName === 'XNXX') {
+                const linkTag = el.querySelector('.thumb-under a') || el.querySelector('a');
+                title = linkTag?.getAttribute('title') || el.querySelector('.thumb-under')?.innerText?.split('\n')[0];
+                link = linkTag?.getAttribute('href');
+                if (link && !link.startsWith('http')) link = "https://xnxx.com" + link;
+                date = el.innerText.match(/(\d+\s\w+\sago)/)?.[0];
+            }
+
+            if (!title) title = "Unknown Video";
+            if (!date) date = "Check Link";
+            
+            return { title, url: link, date, source: siteName };
+        });
+    }, siteName);
+
+    return findings.filter(f => f && f.url && f.url.length > 5);
 }
 
 module.exports = { scanKeywords };
