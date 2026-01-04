@@ -22,7 +22,7 @@ app.post('/scan', async (req, res) => {
     }
 });
 
-// --- CAPTURE ENDPOINT (Patch: Added Reddit Bypass) ---
+// --- CAPTURE ENDPOINT (Updated: Full Page + Harder Tube Bypass) ---
 app.post('/capture', async (req, res) => {
     const { url, source } = req.body;
     console.log(`📸 Capture Requested: ${url}`);
@@ -33,20 +33,21 @@ app.post('/capture', async (req, res) => {
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
         });
         
+        // Use a TALLER viewport by default
         const context = await browser.newContext({
              userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-             viewport: { width: 1280, height: 720 }
+             viewport: { width: 1280, height: 1080 } 
         });
 
-        // 1. INJECT COOKIES (CRITICAL FIX)
+        // 1. INJECT COOKIES
         const cookies = [];
         
-        // Fix for Reddit "Over 18" Splash Screen
+        // Reddit Bypass
         if (url.includes('reddit.com')) {
             cookies.push({ name: 'over18', value: '1', domain: '.reddit.com', path: '/' });
         }
         
-        // Tube Site Bypasses
+        // Tube Site Bypass Cookies
         if (url.includes('pornhub')) {
             cookies.push(
                 { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
@@ -54,9 +55,11 @@ app.post('/capture', async (req, res) => {
                 { name: 'il', value: '1', domain: '.pornhub.com', path: '/' }
             );
         } else if (url.includes('xvideos') || url.includes('xnxx')) {
+             // Force standard "adult_concept" approval
              cookies.push(
                 { name: 'adult_concept', value: '1', domain: '.xvideos.com', path: '/' },
-                { name: 'adult_concept', value: '1', domain: '.xnxx.com', path: '/' }
+                { name: 'adult_concept', value: '1', domain: '.xnxx.com', path: '/' },
+                { name: 'warning-agreed', value: '1', domain: '.xvideos.com', path: '/' }
             );
         }
         await context.addCookies(cookies);
@@ -68,29 +71,40 @@ app.post('/capture', async (req, res) => {
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 });
         } catch(e) { console.log("   Page load timeout (continuing)..."); }
         
-        // 3. FORCE CLICKERS (Backup if cookies fail)
+        // 3. NUCLEAR CLICKER (For when cookies fail)
         try {
             if (url.includes('reddit')) {
-                // Click "Yes" or "Continue" on Reddit splash
-                await page.click('button:has-text("Yes")', { timeout: 1000 }).catch(() => {});
-                await page.click('button:has-text("Continue")', { timeout: 1000 }).catch(() => {});
-                await page.click('form[action="/over18"] button', { timeout: 1000 }).catch(() => {});
+                // Click Reddit "Yes" buttons
+                await page.click('button:has-text("Yes")', { timeout: 1500 }).catch(() => {});
+                await page.click('button:has-text("Continue")', { timeout: 1500 }).catch(() => {});
+            }
+            else if (source === 'XVideos' || url.includes('xvideos')) {
+                // Click "Enter" / "I am 18"
+                console.log("   Attempting XVideos bypass click...");
+                await page.click('#disclaimer_btn_enter', { timeout: 2000 }).catch(() => {});
+                await page.click('.disclaimer-btn', { timeout: 2000 }).catch(() => {});
+                await page.click('a.leaf-btn', { timeout: 2000 }).catch(() => {});
+            }
+            else if (source === 'XNXX' || url.includes('xnxx')) {
+                // Click XNXX "Enter"
+                console.log("   Attempting XNXX bypass click...");
+                await page.click('#disclaimer-block a', { timeout: 2000 }).catch(() => {});
+                await page.click('.btn-danger', { timeout: 2000 }).catch(() => {});
             }
             else if (source === 'Pornhub') {
                 await page.click('#accessAgeDisclaimerPHBtn', { timeout: 1500 }).catch(() => {});
                 await page.click('text="I am 18 or older - Enter"', { timeout: 1500 }).catch(() => {});
-            } 
-            else if (source === 'XVideos') {
-                await page.click('#disclaimer_btn_enter', { timeout: 1500 }).catch(() => {});
             }
-            else if (source === 'XNXX') {
-                await page.click('#disclaimer-block a', { timeout: 1500 }).catch(() => {});
-            }
-            await page.waitForTimeout(1000);
+            
+            // Wait a tiny bit for the splash screen to fade
+            await page.waitForTimeout(1500);
+
         } catch(e) {}
 
-        // 4. SCREENSHOT
-        const screenshotBuffer = await page.screenshot({ fullPage: false });
+        // 4. SCREENSHOT (Changed to FULL PAGE)
+        // This ensures it captures the whole scrollable area, fixing the "cut off" issue
+        const screenshotBuffer = await page.screenshot({ fullPage: true });
+        
         const base64Image = screenshotBuffer.toString('base64');
         const filename = `EVIDENCE_${source}_${Date.now()}.png`;
 
