@@ -6,97 +6,111 @@
     <title>LeakShield Hunter // Pro</title>
     <style>
         :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --success: #22c55e; }
-        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; display:flex; flex-direction:column; align-items:center; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; display:flex; flex-direction:column; align-items:center; min-height:100vh; }
         .container { width: 100%; max-width: 1000px; }
         
-        .search-box { background: var(--card); padding: 20px; border-radius: 12px; display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex: 1; padding: 12px; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 8px; }
-        .btn-primary { background: var(--accent); color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; }
-        
+        .search-box { background: var(--card); padding: 20px; border-radius: 12px; display: flex; gap: 10px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        input { flex: 1; padding: 12px; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 8px; outline:none; }
+        input:focus { border-color: var(--accent); }
+        .btn-primary { background: var(--accent); color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight:bold; }
+        .btn-primary:hover { opacity:0.9; }
+
         /* FILTERS */
-        .filter-row { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
-        .filter-btn { background: var(--card); color: #94a3b8; border: 1px solid #334155; padding: 6px 12px; border-radius: 20px; font-size: 13px; cursor: pointer; }
-        .filter-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
-        .divider { width: 1px; background: #334155; margin: 0 10px; }
-
-        /* LIST */
-        .finding-card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--accent); display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .tag { padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; margin-right: 5px; }
-        .tag-pornhub { background: #FFA500; color: black; }
-        .tag-xnxx { background: #00BFFF; color: black; }
-        .tag-xvideos { background: #DC143C; color: white; }
-        .tag-reddit { background: #FF4500; color: white; }
-
-        .btn-capture { background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 6px 12px; cursor: pointer; }
-        .btn-view { background: var(--success); border: none; color: black; padding: 6px 12px; cursor: pointer; font-weight: bold; }
+        .filter-section { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 20px; display:none; animation: fadeIn 0.5s; }
+        .filter-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap:wrap; }
+        .filter-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; width: 60px; }
         
+        .filter-btn { background: transparent; color: #94a3b8; border: 1px solid #334155; padding: 5px 15px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+        .filter-btn:hover { border-color: var(--accent); color: var(--accent); }
+        .filter-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+        /* RESULTS */
+        .finding-card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--accent); display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; animation: slideUp 0.3s ease-out; }
+        .tag { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 8px; text-transform: uppercase; }
+        .tag-Pornhub { background: #FFA500; color: black; }
+        .tag-XNXX { background: #3b82f6; color: white; }
+        .tag-XVideos { background: #ef4444; color: white; }
+        .tag-Reddit { background: #ff4500; color: white; }
+
+        .btn-capture { background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size:12px; }
+        .btn-capture:hover { background: rgba(59, 130, 246, 0.1); }
+        
+        .btn-view { background: var(--success); border: none; color: black; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size:12px; font-weight: bold; display:flex; align-items:center; gap:5px; }
+        .btn-view:hover { opacity: 0.9; }
+
         /* MODAL */
-        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); justify-content: center; align-items: center; flex-direction: column; z-index: 100; }
-        #modal img { max-width: 90%; max-height: 80vh; border: 1px solid #333; }
-        .modal-actions { margin-top: 15px; display: flex; gap: 20px; }
-        .link-dl { color: var(--accent); text-decoration: none; font-size: 14px; cursor: pointer; }
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; }
+        #modal img { max-width: 90%; max-height: 80vh; border: 2px solid #333; box-shadow: 0 0 50px rgba(0,0,0,0.5); }
+        .modal-bar { margin-top: 20px; display: flex; gap: 20px; background: #1e293b; padding: 10px 30px; border-radius: 50px; }
+        .modal-link { color: var(--text); text-decoration: none; cursor: pointer; font-size: 14px; display:flex; align-items:center; gap:8px; }
+        .modal-link:hover { color: var(--accent); }
+
+        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+        @keyframes slideUp { from { transform: translateY(10px); opacity:0; } to { transform: translateY(0); opacity:1; } }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-        <h2 style="margin:0;">🕵️‍♂️ LeakShield Hunter</h2>
+        <h2 style="margin:0;">🕵️‍♂️ LeakShield Hunter <span style="font-size:14px; color:#64748b; font-weight:normal; margin-left:10px;">v4.1 Stable</span></h2>
     </div>
 
     <div class="search-box">
-        <input type="text" id="keywords" placeholder="Keywords (e.g. Alexis Texas)..." />
+        <input type="text" id="keywords" placeholder="Enter keywords (e.g. Alexis Texas)..." />
         <button id="scanBtn" class="btn-primary" onclick="runScan()">SCAN NETWORKS</button>
     </div>
 
-    <div id="filterSection" style="display:none;">
+    <div id="filterSection" class="filter-section">
         <div class="filter-row">
-            <span style="font-size:12px; color:#64748b; align-self:center;">SOURCE:</span>
-            <button class="filter-btn active" onclick="setFilter('source', 'all')">All</button>
-            <button class="filter-btn" onclick="setFilter('source', 'Reddit')">Reddit</button>
-            <button class="filter-btn" onclick="setFilter('source', 'Pornhub')">Pornhub</button>
-            <button class="filter-btn" onclick="setFilter('source', 'XNXX')">XNXX</button>
-            <button class="filter-btn" onclick="setFilter('source', 'XVideos')">XVideos</button>
-            
-            <div class="divider"></div>
-            
-            <span style="font-size:12px; color:#64748b; align-self:center;">DATE:</span>
-            <button class="filter-btn active" onclick="setFilter('date', 'all')">Any Time</button>
-            <button class="filter-btn" onclick="setFilter('date', 'today')">Today</button>
-            <button class="filter-btn" onclick="setFilter('date', 'week')">This Week</button>
+            <span class="filter-label">SOURCE</span>
+            <button class="filter-btn active" onclick="setFilter('source', 'all', this)">All Networks</button>
+            <button class="filter-btn" onclick="setFilter('source', 'Reddit', this)">Reddit</button>
+            <button class="filter-btn" onclick="setFilter('source', 'Pornhub', this)">Pornhub</button>
+            <button class="filter-btn" onclick="setFilter('source', 'XNXX', this)">XNXX</button>
+            <button class="filter-btn" onclick="setFilter('source', 'XVideos', this)">XVideos</button>
+        </div>
+        <div class="filter-row">
+            <span class="filter-label">DATE</span>
+            <button class="filter-btn active" onclick="setFilter('date', 'all', this)">Any Time</button>
+            <button class="filter-btn" onclick="setFilter('date', 'today', this)">Last 24 Hours</button>
+            <button class="filter-btn" onclick="setFilter('date', 'week', this)">This Week</button>
         </div>
     </div>
 
     <div id="results">
-        <div style="text-align:center; color:#475569; margin-top:40px;">Enter keywords to begin.</div>
+        <div style="text-align:center; color:#475569; margin-top:60px;">
+            Ready to hunt. Enter keywords above.
+        </div>
     </div>
 </div>
 
 <div id="modal" onclick="if(event.target.id==='modal') closeModal()">
     <img id="modalImg" src="" />
-    <div class="modal-actions">
-        <a id="downloadLink" class="link-dl" download="evidence.png">⬇️ Download Evidence</a>
-        <span class="link-dl" onclick="closeModal()" style="color:#ef4444">❌ Close (ESC)</span>
+    <div class="modal-bar">
+        <a id="downloadLink" class="modal-link" download>⬇️ Download</a>
+        <div style="width:1px; background:#334155;"></div>
+        <span class="modal-link" onclick="closeModal()" style="color:#ef4444">❌ Close (ESC)</span>
     </div>
 </div>
 
 <script>
     let allData = [];
-    let currentFilters = { source: 'all', date: 'all' };
+    let activeFilters = { source: 'all', date: 'all' };
 
-    // --- KEY LISTENERS ---
+    // --- KEYBOARD LISTENERS ---
     document.getElementById('keywords').addEventListener('keypress', (e) => { if(e.key === 'Enter') runScan(); });
     document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeModal(); });
 
-    // --- SCANNER ---
+    // --- MAIN SCAN ---
     async function runScan() {
         const btn = document.getElementById('scanBtn');
         const list = document.getElementById('results');
         const keywords = document.getElementById('keywords').value;
-        if (!keywords) return;
+        if (!keywords) return alert("Enter a keyword");
 
         btn.disabled = true; btn.innerText = "SCANNING...";
-        list.innerHTML = "<div style='text-align:center; padding:40px; color:#94a3b8;'>Deep Scanning Subreddits & Tube Sites...</div>";
+        list.innerHTML = "<div style='text-align:center; padding:50px; color:#94a3b8;'>🛰️ Scanning Deep Web & Socials...<br><span style='font-size:12px; opacity:0.7'>Please wait...</span></div>";
 
         try {
             const res = await fetch('/scan', {
@@ -105,77 +119,91 @@
                 body: JSON.stringify({ keywords: keywords.split(',') })
             });
             const data = await res.json();
-            allData = data.data || [];
+            
+            // Assign unique ID to every item to fix the "Button Bug"
+            allData = (data.data || []).map((item, idx) => ({ ...item, id: idx }));
             
             document.getElementById('filterSection').style.display = 'block';
             applyFilters();
-        } catch (e) { list.innerHTML = "Error: " + e.message; }
-        
+        } catch (e) {
+            list.innerHTML = `<div style="color:#ef4444; text-align:center;">Error: ${e.message}</div>`;
+        }
         btn.disabled = false; btn.innerText = "SCAN NETWORKS";
     }
 
-    // --- RENDER & FILTERS ---
-    function setFilter(type, val) {
-        currentFilters[type] = val;
-        // Update UI buttons
-        const row = type === 'source' ? 0 : 1; // Simplification for demo
-        document.querySelectorAll('.filter-row button').forEach(b => {
-            if(b.innerText.toLowerCase().includes(val) || (val==='all' && b.innerText==='All') || (val==='all' && b.innerText==='Any Time')) {
-                // This is a rough match for the UI class logic, refining in production
-            }
-        });
+    // --- FILTERS ---
+    function setFilter(type, value, btnElement) {
+        activeFilters[type] = value;
+        
+        // Visual Update
+        const parent = btnElement.parentElement;
+        parent.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btnElement.classList.add('active');
+
         applyFilters();
     }
 
     function applyFilters() {
         const list = document.getElementById('results');
         list.innerHTML = "";
-        
+
         const filtered = allData.filter(item => {
-            const matchSource = currentFilters.source === 'all' || item.source === currentFilters.source;
-            // Simple date check (text based for now as dates vary wildy across sites)
-            let matchDate = true;
-            const dateStr = item.date.toLowerCase();
-            if (currentFilters.date === 'today') matchDate = dateStr.includes('hour') || dateStr.includes('min');
-            if (currentFilters.date === 'week') matchDate = dateStr.includes('day') || dateStr.includes('hour');
+            // Source Match
+            const matchSource = activeFilters.source === 'all' || item.source === activeFilters.source;
             
+            // Date Match (Loose string matching)
+            let matchDate = true;
+            const d = item.date.toLowerCase();
+            if (activeFilters.date === 'today') matchDate = d.includes('hour') || d.includes('min') || d.includes('just now');
+            if (activeFilters.date === 'week') matchDate = d.includes('day') || d.includes('hour') || d.includes('min');
+
             return matchSource && matchDate;
         });
 
-        if(filtered.length === 0) { list.innerHTML = "<div style='text-align:center'>No results match filters.</div>"; return; }
+        if (filtered.length === 0) {
+            list.innerHTML = "<div style='text-align:center; padding:40px; color:#64748b'>No results match these filters.</div>";
+            return;
+        }
 
-        filtered.forEach((item, index) => {
-            // Find correct tag class
-            let tag = 'tag';
-            if(item.source.includes('Porn')) tag += ' tag-pornhub';
-            if(item.source.includes('XNXX')) tag += ' tag-xnxx';
-            if(item.source.includes('Video')) tag += ' tag-xvideos';
-            if(item.source.includes('Red')) tag += ' tag-reddit';
-
+        filtered.forEach(item => {
             const div = document.createElement('div');
             div.className = 'finding-card';
             
-            // CHECK IF ALREADY CAPTURED
-            const actionBtn = item.evidenceImage 
-                ? `<button class="btn-view" onclick="viewEvidence(${index})">👁️ VIEW EVIDENCE</button>`
-                : `<button class="btn-capture" onclick="captureEvidence(${index}, '${item.url}', '${item.source}')">📸 CAPTURE</button>`;
+            // DYNAMIC BUTTON LOGIC
+            // If we have an image, show VIEW. If not, show CAPTURE.
+            let actionButton = '';
+            if (item.evidenceImage) {
+                actionButton = `<button class="btn-view" onclick="openEvidence(${item.id})">👁️ VIEW</button>`;
+            } else {
+                actionButton = `<button class="btn-capture" onclick="captureEvidence(${item.id}, '${item.url}', '${item.source}', this)">📸 CAPTURE</button>`;
+            }
 
             div.innerHTML = `
                 <div>
-                    <h3><span class="${tag}">${item.source}</span> ${item.title}</h3>
-                    <div style="font-size:12px; color:#94a3b8;">${item.date} • <a href="${item.url}" target="_blank" style="color:#64748b">Link</a></div>
+                    <div style="font-size:14px; font-weight:bold; margin-bottom:4px;">
+                        <span class="tag tag-${item.source}">${item.source}</span> ${item.title}
+                    </div>
+                    <div style="font-size:12px; color:#94a3b8;">
+                        ${item.date} • <a href="${item.url}" target="_blank" style="color:#64748b; text-decoration:none;">${item.url.substring(0,40)}...</a>
+                    </div>
                 </div>
-                <div>${actionBtn}</div>
+                <div>${actionButton}</div>
             `;
             list.appendChild(div);
         });
     }
 
-    // --- CAPTURE & VIEW ---
-    async function captureEvidence(index, url, source) {
-        const btn = event.target;
-        btn.innerText = "⏳..."; 
-        
+    // --- CAPTURE LOGIC ---
+    async function captureEvidence(id, url, source, btnElement) {
+        // Find item in master list
+        const itemIndex = allData.findIndex(i => i.id === id);
+        if(itemIndex === -1) return;
+
+        // UI Feedback
+        const originalText = btnElement.innerText;
+        btnElement.innerText = "⏳...";
+        btnElement.disabled = true;
+
         try {
             const res = await fetch('/capture', {
                 method: 'POST',
@@ -183,32 +211,48 @@
                 body: JSON.stringify({ url, source })
             });
             const data = await res.json();
-            
+
             if (data.success) {
-                // SAVE IMAGE TO DATA OBJECT
-                allData[index].evidenceImage = data.image; 
-                applyFilters(); // Re-render to show "VIEW" button
+                // UPDATE MASTER DATA
+                allData[itemIndex].evidenceImage = data.image; 
+                allData[itemIndex].filename = data.filename;
                 
-                // Open Modal
-                viewEvidence(index);
-            } else { alert("Error: " + data.error); btn.innerText = "❌"; }
-        } catch (e) { alert("Error"); }
+                // Re-render the whole list to show the "View" button
+                applyFilters();
+                
+                // Auto-open
+                openEvidence(id);
+            } else {
+                alert("Capture Failed: " + data.error);
+                btnElement.innerText = "❌ Error";
+            }
+        } catch (e) {
+            alert("Network Error");
+            btnElement.innerText = originalText;
+            btnElement.disabled = false;
+        }
     }
 
-    function viewEvidence(index) {
-        const item = allData[index];
+    // --- MODAL VIEWER ---
+    function openEvidence(id) {
+        const item = allData.find(i => i.id === id);
+        if (!item || !item.evidenceImage) return;
+
         const modal = document.getElementById('modal');
         const img = document.getElementById('modalImg');
         const dl = document.getElementById('downloadLink');
 
         img.src = item.evidenceImage;
         dl.href = item.evidenceImage;
-        dl.download = `EVIDENCE_${item.source}_${Date.now()}.png`;
+        dl.download = item.filename || `Evidence_${id}.png`;
         
         modal.style.display = 'flex';
     }
 
-    function closeModal() { document.getElementById('modal').style.display = 'none'; }
+    function closeModal() {
+        document.getElementById('modal').style.display = 'none';
+    }
 </script>
+
 </body>
 </html>
