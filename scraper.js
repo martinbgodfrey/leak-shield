@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 
 async function scanKeywords(keywords) {
-    console.log(`🚀 Starting TARGETED SCAN (Specific Subreddits + Tube Sites)...`);
+    console.log(`🚀 Starting FRESH SCAN (Sorting by Date)...`);
     
     const browser = await chromium.launch({
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
@@ -15,11 +15,8 @@ async function scanKeywords(keywords) {
     const page = await context.newPage();
     let allFindings = [];
 
-    // --- TARGETED SUBREDDIT LIST ---
-    const redditSubs = [
-        'CelebNSFW', 'WatchItForThePlot', 'nsfw', 'BonerMaterial', 
-        'pornid', 'TipOfMyPenis', 'NSFW_GIF', 'leaked_content'
-    ];
+    // TARGETED SUBREDDITS
+    const redditSubs = ['CelebNSFW', 'WatchItForThePlot', 'nsfw', 'BonerMaterial', 'pornid', 'TipOfMyPenis', 'NSFW_GIF'];
 
     const sites = [
         { 
@@ -27,12 +24,12 @@ async function scanKeywords(keywords) {
             searchUrl: (k, p) => `https://www.erome.com/search?q=${encodeURIComponent(k)}&page=${p}`, 
             container: '#room_results .album-link, .video-link' 
         },
-        // NEW REDDIT LOGIC: Generates a search URL for specific subreddits
         { 
             name: 'Reddit', 
-            type: 'subreddit', // Special flag
+            type: 'subreddit', 
             subs: redditSubs,
-            searchUrl: (k, sub) => `https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(k)}&restrict_sr=on&sort=relevance&t=all`, 
+            // CHANGED: sort=new instead of relevance
+            searchUrl: (k, sub) => `https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(k)}&restrict_sr=on&sort=new&t=all`, 
             container: '.search-result-link' 
         },
         { 
@@ -70,39 +67,30 @@ async function scanKeywords(keywords) {
     for (const site of sites) {
         for (const term of keywords) {
             
-            // Handle Reddit (Loop through subreddits instead of pages)
             if (site.name === 'Reddit') {
                 for (const sub of site.subs) {
                     try {
-                        console.log(`🔎 [Reddit] Scanning r/${sub} for "${term}"...`);
-                        await page.goto(site.searchUrl(term, sub), { waitUntil: 'domcontentloaded', timeout: 15000 });
-                        
-                        const findings = await extractFindings(page, site.name, site.container);
-                        allFindings = [...allFindings, ...findings];
-                    } catch (e) {
-                         // Ignore empty subreddits
-                    }
+                        console.log(`🔎 [Reddit] Scanning r/${sub} (Newest)...`);
+                        await page.goto(site.searchUrl(term, sub), { waitUntil: 'domcontentloaded', timeout: 10000 });
+                        allFindings.push(...(await extractFindings(page, site.name, site.container)));
+                    } catch (e) {}
                 }
-                continue; // Move to next site
+                continue;
             }
 
-            // Handle Standard Sites (Page Loop)
-            for (let pageNum = 1; pageNum <= 3; pageNum++) {
+            for (let pageNum = 1; pageNum <= 2; pageNum++) { // Reduced to 2 pages for speed
                 try {
                     console.log(`🔎 [${site.name}] Checking "${term}" (Page ${pageNum})...`);
-                    await page.goto(site.searchUrl(term, pageNum), { waitUntil: 'domcontentloaded', timeout: 25000 });
+                    await page.goto(site.searchUrl(term, pageNum), { waitUntil: 'domcontentloaded', timeout: 20000 });
 
-                    // Age Gate (Pornhub)
                     if (site.name === 'Pornhub') {
                         try { 
                             if (await page.$('#accessAgeDisclaimerPHBtn')) await page.click('#accessAgeDisclaimerPHBtn');
-                            else if (await page.$('.age-verification-container button')) await page.click('.age-verification-container button');
                             await page.waitForTimeout(500); 
                         } catch(e){}
                     }
 
-                    const findings = await extractFindings(page, site.name, site.container);
-                    allFindings = [...allFindings, ...findings];
+                    allFindings.push(...(await extractFindings(page, site.name, site.container)));
 
                 } catch (e) {
                     console.log(`   Skipping [${site.name}] Page ${pageNum}: ${e.message}`);
@@ -113,19 +101,15 @@ async function scanKeywords(keywords) {
 
     await browser.close();
     
-    // Deduplication
     const uniqueResults = [...new Map(allFindings.map(item => [item['url'], item])).values()];
     console.log(`✅ Extraction Complete. Found ${uniqueResults.length} items.`);
     return uniqueResults;
 }
 
-// Helper function to keep the main loop clean
 async function extractFindings(page, siteName, container) {
     const findings = await page.$$eval(container, (els, siteName) => {
         return els.map(el => {
-            let title = "";
-            let link = "";
-            let date = "";
+            let title = "", link = "", date = "";
 
             if (siteName === 'Erome') {
                 title = el.querySelector('.album-title')?.innerText?.trim();
@@ -136,7 +120,6 @@ async function extractFindings(page, siteName, container) {
                 title = el.querySelector('a.search-title')?.innerText?.trim();
                 link = el.querySelector('a.search-title')?.getAttribute('href');
                 date = el.querySelector('.search-time time')?.innerText;
-                // Add Subreddit to title for clarity
                 const sub = el.querySelector('.search-subreddit-link')?.innerText;
                 if (sub) title = `[${sub}] ${title}`;
             }
@@ -179,7 +162,7 @@ async function extractFindings(page, siteName, container) {
             }
 
             if (!title) title = "Unknown Video";
-            if (!date) date = "Check Link";
+            if (!date) date = "Unknown Date";
             
             return { title, url: link, date, source: siteName };
         });

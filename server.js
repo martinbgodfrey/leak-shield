@@ -22,15 +22,16 @@ app.post('/scan', async (req, res) => {
     }
 });
 
-// 2. CAPTURE ENDPOINT (Fixed "Stuck" Issue)
+// 2. CAPTURE ENDPOINT (Process Isolation)
 app.post('/capture', async (req, res) => {
     const { url, source, title } = req.body;
-    console.log(`📸 Manual Capture Requested: ${url}`);
+    console.log(`📸 Capture Requested: ${url}`);
     
     let browser = null;
     try {
+        // Launch a lightweight instance
         browser = await chromium.launch({ 
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--single-process'] 
         });
         
         const context = await browser.newContext({
@@ -39,7 +40,7 @@ app.post('/capture', async (req, res) => {
 
         const page = await context.newPage();
 
-        // 1. Anti-Detect: Set Cookies for Pornhub
+        // Anti-Detect Cookies
         if (source === 'Pornhub') {
             await context.addCookies([
                 { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
@@ -47,20 +48,20 @@ app.post('/capture', async (req, res) => {
             ]);
         }
 
-        // 2. Load Page (Aggressive Timeout to prevent hanging)
-        await page.goto(url, { waitUntil: 'load', timeout: 20000 });
+        // Set a strict timeout so it doesn't hang forever
+        await page.goto(url, { waitUntil: 'load', timeout: 15000 });
         
-        // 3. Take Screenshot
         const screenshotBuffer = await page.screenshot({ fullPage: false });
         const base64Image = screenshotBuffer.toString('base64');
         
-        // 4. Background Upload (Non-blocking)
+        // Background Upload
         const filename = `EVIDENCE_${source}_${Date.now()}.png`;
         uploadScreenshot(screenshotBuffer, filename, process.env.DRIVE_FOLDER_ID)
-            .then(id => console.log(`   (Background) Drive Upload ID: ${id}`))
-            .catch(e => console.log(`   (Background) Drive Upload Failed: ${e.message}`));
+            .catch(e => console.log(`   (Background) Drive Upload Skipped: ${e.message}`));
 
-        // 5. Success Response
+        await browser.close();
+        browser = null; // Mark as closed
+
         res.json({ 
             success: true, 
             image: `data:image/png;base64,${base64Image}`,
@@ -69,13 +70,8 @@ app.post('/capture', async (req, res) => {
 
     } catch (error) {
         console.error("❌ Capture Failed:", error.message);
+        if (browser) await browser.close();
         res.status(500).json({ success: false, error: "Capture failed: " + error.message });
-    } finally {
-        // 6. FORCE CLOSE BROWSER (Crucial Fix)
-        if (browser) {
-            await browser.close();
-            console.log("   Browser closed. Ready for next capture.");
-        }
     }
 });
 
