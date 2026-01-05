@@ -3,229 +3,311 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LeakShield Hunter // Pro</title>
+    <title>Digital Factory | Leak Monitor</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #3b82f6; --success: #22c55e; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; display:flex; flex-direction:column; align-items:center; min-height:100vh; }
-        .container { width: 100%; max-width: 1000px; }
+        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #38bdf8; --danger: #ef4444; --success: #22c55e; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; max-width: 1200px; margin: 0 auto; }
         
-        .search-panel { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        .input-group { margin-bottom: 15px; }
-        .input-label { font-size: 12px; color: #94a3b8; margin-bottom: 5px; display: block; font-weight: bold; }
+        /* Layout */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
         
-        input { width: 100%; padding: 12px; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 8px; outline:none; box-sizing: border-box; }
-        input:focus { border-color: var(--accent); }
+        /* Controls Container */
+        .controls { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; min-height: 60px; display: flex; align-items: center; gap: 15px; }
         
-        .btn-primary { background: var(--accent); color: white; padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-weight:bold; width: 100%; margin-top: 10px; }
-        .btn-primary:hover { opacity:0.9; }
+        /* Inputs & Buttons */
+        input { padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 14px; flex-grow: 1; }
+        button { padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; transition: all 0.2s; color: white; }
+        button:hover { filter: brightness(1.1); }
+        
+        .btn-scan { background: var(--accent); color: #000; }
+        .btn-dmca-start { background: #334155; color: #94a3b8; border: 1px solid #475569; }
+        .btn-dmca-active { background: var(--danger); }
+        
+        /* Source Filters (Hidden by default) */
+        #source-filters { display: none; gap: 10px; }
+        .filter-chip { background: #0f172a; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; }
+        .filter-chip:hover { background: var(--accent); color: #000; }
+        
+        /* Table */
+        .results-card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 16px; text-align: left; border-bottom: 1px solid #334155; }
+        th { background: #0f172a; color: var(--accent); font-size: 13px; text-transform: uppercase; }
+        
+        /* Checkboxes (Hidden until DMCA mode) */
+        .check-col { width: 40px; display: none; }
+        .dmca-mode .check-col { display: table-cell; }
+        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--danger); }
+        
+        tr.selected { background: rgba(239, 68, 68, 0.1); }
 
-        /* FILTERS */
-        .filter-section { background: var(--card); padding: 15px; border-radius: 12px; margin-bottom: 20px; display:none; }
-        .filter-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; flex-wrap:wrap; }
-        .filter-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #64748b; width: 60px; }
-        .filter-btn { background: transparent; color: #94a3b8; border: 1px solid #334155; padding: 5px 15px; border-radius: 20px; font-size: 13px; cursor: pointer; }
-        .filter-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+        /* --- THE MODAL --- */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; }
+        .modal-content { background: var(--card); padding: 30px; border-radius: 12px; width: 600px; max-width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #334155; }
+        .modal-header { font-size: 20px; font-weight: bold; margin-bottom: 15px; display: flex; justify-content: space-between; }
+        textarea { width: 100%; height: 300px; background: #0f172a; color: #cbd5e1; border: 1px solid #334155; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px; resize: none; }
+        .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+        .btn-close { background: #334155; }
+        .btn-copy { background: var(--success); }
 
-        /* RESULTS */
-        .finding-card { background: var(--card); padding: 15px; border-radius: 8px; border-left: 4px solid var(--accent); display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .tag { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin-right: 8px; text-transform: uppercase; }
-        .tag-Pornhub { background: #FFA500; color: black; }
-        .tag-XNXX { background: #3b82f6; color: white; }
-        .tag-XVideos { background: #ef4444; color: white; }
-        .tag-Reddit { background: #ff4500; color: white; }
-
-        .btn-capture { background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size:12px; }
-        .btn-view { background: var(--success); border: none; color: black; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size:12px; font-weight: bold; }
-
-        /* MODAL */
-        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.92); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; }
-        #modal img { max-width: 90%; max-height: 80vh; border: 2px solid #333; }
-        .modal-bar { margin-top: 20px; display: flex; gap: 20px; background: #1e293b; padding: 10px 30px; border-radius: 50px; }
-        .modal-link { color: var(--text); text-decoration: none; cursor: pointer; font-size: 14px; display:flex; align-items:center; gap:8px; }
+        /* Toast */
+        #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 200; left: 50%; bottom: 30px; transform: translateX(-50%); }
+        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 20px;">
-        <h2 style="margin:0;">🕵️‍♂️ LeakShield Hunter <span style="font-size:14px; color:#64748b; font-weight:normal; margin-left:10px;">v5.0 Custom</span></h2>
-    </div>
-
-    <div class="search-panel">
-        <div class="input-group">
-            <label class="input-label">KEYWORDS (Target Name)</label>
-            <input type="text" id="keywords" placeholder="e.g. Alexis Texas..." />
+    <div class="header">
+        <div>
+            <h1>Digital Factory</h1>
+            <p style="color: #94a3b8; margin-top: 5px;">Leak Monitor</p>
         </div>
-        <div class="input-group">
-            <label class="input-label">ADDITIONAL SUBREDDITS (Optional)</label>
-            <input type="text" id="extraSubs" placeholder="e.g. AlexisTexas, Alexis_Fans (Comma separated)" />
+        <div id="stats" style="text-align: right; font-size: 14px; color: #94a3b8;">Ready.</div>
+    </div>
+
+    <div class="controls" id="main-controls">
+        <input type="text" id="keywords" placeholder="Keywords (e.g. 'jane_doe_123')">
+        <input type="text" id="subs" placeholder="Extra Subs (optional)" style="flex-grow: 0.5;">
+        <button class="btn-scan" onclick="runScan()">🚀 SCAN</button>
+        <div style="width: 1px; height: 30px; background: #334155; margin: 0 10px;"></div>
+        <button class="btn-dmca-start" id="startDmcaBtn" onclick="startDMCAMode()">⚖️ Draft DMCA</button>
+    </div>
+
+    <div class="controls" id="dmca-controls" style="display: none; background: #1e1b4b; border: 1px solid #4f46e5;">
+        <span style="font-weight:bold; color: #a5b4fc;">Step 1: Select Platform</span>
+        <div id="source-filters" style="display:flex;">
+            </div>
+        <div style="flex-grow:1;"></div>
+        <button id="generateBtn" class="btn-dmca-active" onclick="openDraftModal()" disabled style="opacity: 0.5;">Select Items first</button>
+        <button class="btn-close" onclick="exitDMCAMode()">Cancel</button>
+    </div>
+
+    <div class="results-card">
+        <table id="mainTable">
+            <thead>
+                <tr>
+                    <th class="check-col">Select</th>
+                    <th>Source</th>
+                    <th>Title / Link</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody id="resultsBody">
+                <tr><td colspan="4" style="text-align:center; color: #64748b; padding: 30px;">Enter keywords and hit SCAN to start.</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="modal-overlay" id="draftModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>📄 DMCA Draft Preview</span>
+                <span style="cursor:pointer;" onclick="closeModal()">✕</span>
+            </div>
+            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Review the text below. Copy it and email it to the legal team.</p>
+            <textarea id="draftText" readonly></textarea>
+            <div class="modal-footer">
+                <button class="btn-close" onclick="closeModal()">Close</button>
+                <button class="btn-copy" onclick="copyToClipboard()">📋 Copy Text</button>
+                <a id="mailtoLink" href="#" target="_blank" style="text-decoration:none;">
+                    <button class="btn-scan">📧 Open Email App</button>
+                </a>
+            </div>
         </div>
-        <button id="scanBtn" class="btn-primary" onclick="runScan()">SCAN NETWORKS</button>
     </div>
 
-    <div id="filterSection" class="filter-section">
-        <div class="filter-row">
-            <span class="filter-label">SOURCE</span>
-            <button class="filter-btn active" onclick="setFilter('source', 'all', this)">All</button>
-            <button class="filter-btn" onclick="setFilter('source', 'Reddit', this)">Reddit</button>
-            <button class="filter-btn" onclick="setFilter('source', 'Pornhub', this)">Pornhub</button>
-            <button class="filter-btn" onclick="setFilter('source', 'XNXX', this)">XNXX</button>
-            <button class="filter-btn" onclick="setFilter('source', 'XVideos', this)">XVideos</button>
-        </div>
-        <div class="filter-row">
-            <span class="filter-label">DATE</span>
-            <button class="filter-btn active" onclick="setFilter('date', 'all', this)">Any Time</button>
-            <button class="filter-btn" onclick="setFilter('date', 'today', this)">Last 24 Hours</button>
-            <button class="filter-btn" onclick="setFilter('date', 'week', this)">This Week</button>
-        </div>
-    </div>
+    <div id="toast">Notification</div>
 
-    <div id="results">
-        <div style="text-align:center; color:#475569; margin-top:60px;">Ready to hunt.</div>
-    </div>
-</div>
+    <script>
+        let currentResults = [];
+        let selectedIndices = new Set();
+        let activeSourceFilter = null;
 
-<div id="modal" onclick="if(event.target.id==='modal') closeModal()">
-    <img id="modalImg" src="" />
-    <div class="modal-bar">
-        <a id="downloadLink" class="modal-link" download>⬇️ Download</a>
-        <div style="width:1px; background:#334155;"></div>
-        <span class="modal-link" onclick="closeModal()" style="color:#ef4444">❌ Close (ESC)</span>
-    </div>
-</div>
-
-<script>
-    let allData = [];
-    let activeFilters = { source: 'all', date: 'all' };
-
-    document.getElementById('keywords').addEventListener('keypress', (e) => { if(e.key === 'Enter') runScan(); });
-    document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeModal(); });
-
-    async function runScan() {
-        const btn = document.getElementById('scanBtn');
-        const list = document.getElementById('results');
-        const keywords = document.getElementById('keywords').value;
-        const extraSubs = document.getElementById('extraSubs').value;
-
-        if (!keywords) return alert("Enter a keyword");
-
-        btn.disabled = true; btn.innerText = "SCANNING...";
-        list.innerHTML = "<div style='text-align:center; padding:50px; color:#94a3b8;'>🛰️ Scanning Target Subreddits & Tubes...</div>";
-
-        try {
-            const payload = { 
-                keywords: keywords.split(','),
-                extraSubs: extraSubs ? extraSubs.split(',') : []
-            };
-
-            const res = await fetch('/scan', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
+        // --- 1. SCAN LOGIC ---
+        async function runScan() {
+            const keywords = document.getElementById('keywords').value.split(',').map(k => k.trim()).filter(k => k);
+            const extraSubs = document.getElementById('subs').value.split(',').map(s => s.trim()).filter(s => s);
+            if (!keywords.length) return alert("Enter a keyword first.");
             
-            // Assign ID
-            allData = (data.data || []).map((item, idx) => ({ ...item, id: idx }));
-            
-            document.getElementById('filterSection').style.display = 'block';
-            applyFilters();
-        } catch (e) {
-            list.innerHTML = `<div style="color:#ef4444; text-align:center;">Error: ${e.message}</div>`;
+            const btn = document.querySelector('.btn-scan');
+            btn.innerText = "Scanning..."; btn.disabled = true;
+            document.getElementById('resultsBody').innerHTML = `<tr><td colspan="4" style="text-align:center;">Scanning...</td></tr>`;
+
+            try {
+                const res = await fetch('/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ keywords, extraSubs })
+                });
+                const data = await res.json();
+                currentResults = data.data || [];
+                selectedIndices.clear();
+                renderResults();
+                document.getElementById('stats').innerText = `Found: ${data.count || 0}`;
+                
+                // Enable DMCA button if we have results
+                const dmcaBtn = document.getElementById('startDmcaBtn');
+                if (data.count > 0) {
+                    dmcaBtn.style.color = "white";
+                    dmcaBtn.style.background = "#ef4444";
+                }
+
+            } catch (err) { alert(err.message); } 
+            finally { btn.innerText = "🚀 SCAN"; btn.disabled = false; }
         }
-        btn.disabled = false; btn.innerText = "SCAN NETWORKS";
-    }
 
-    function setFilter(type, value, btnElement) {
-        activeFilters[type] = value;
-        const parent = btnElement.parentElement;
-        parent.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btnElement.classList.add('active');
-        applyFilters();
-    }
-
-    function applyFilters() {
-        const list = document.getElementById('results');
-        list.innerHTML = "";
-
-        const filtered = allData.filter(item => {
-            const matchSource = activeFilters.source === 'all' || item.source === activeFilters.source;
-            let matchDate = true;
-            const d = item.date.toLowerCase();
-            if (activeFilters.date === 'today') matchDate = d.includes('hour') || d.includes('min') || d.includes('just now');
-            if (activeFilters.date === 'week') matchDate = d.includes('day') || d.includes('hour') || d.includes('min');
-            return matchSource && matchDate;
-        });
-
-        if (filtered.length === 0) { list.innerHTML = "<div style='text-align:center; padding:40px; color:#64748b'>No results match filters.</div>"; return; }
-
-        filtered.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'finding-card';
-            
-            let actionButton = '';
-            if (item.evidenceImage) {
-                actionButton = `<button class="btn-view" onclick="openEvidence(${item.id})">👁️ VIEW</button>`;
-            } else {
-                actionButton = `<button class="btn-capture" onclick="captureEvidence(${item.id}, '${item.url}', '${item.source}', this)">📸 CAPTURE</button>`;
+        // --- 2. RENDER TABLE ---
+        function renderResults() {
+            const tbody = document.getElementById('resultsBody');
+            if (!currentResults.length) {
+                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No results found.</td></tr>`;
+                return;
             }
 
-            // Added Author display for Reddit results
-            let metaInfo = item.date;
-            if(item.source === 'Reddit' && item.author) {
-                metaInfo += ` • Posted by ${item.author}`;
-            }
+            tbody.innerHTML = currentResults.map((item, index) => {
+                // Filter logic: If a filter is active, hide non-matching rows
+                const isHidden = activeSourceFilter && item.source !== activeSourceFilter;
+                if (isHidden) return '';
 
-            div.innerHTML = `
-                <div>
-                    <div style="font-size:14px; font-weight:bold; margin-bottom:4px;">
-                        <span class="tag tag-${item.source}">${item.source}</span> ${item.title}
-                    </div>
-                    <div style="font-size:12px; color:#94a3b8;">${metaInfo} • <a href="${item.url}" target="_blank" style="color:#64748b">Link</a></div>
-                </div>
-                <div>${actionButton}</div>
-            `;
-            list.appendChild(div);
-        });
-    }
-
-    async function captureEvidence(id, url, source, btnElement) {
-        const itemIndex = allData.findIndex(i => i.id === id);
-        if(itemIndex === -1) return;
-
-        btnElement.innerText = "⏳..."; btnElement.disabled = true;
-
-        try {
-            const res = await fetch('/capture', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ url, source })
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                allData[itemIndex].evidenceImage = data.image; 
-                allData[itemIndex].filename = data.filename;
-                applyFilters();
-                openEvidence(id);
-            } else {
-                alert("Capture Failed: " + data.error);
-                btnElement.innerText = "❌ Error";
-            }
-        } catch (e) {
-            btnElement.innerText = "Capture"; btnElement.disabled = false;
+                return `
+                <tr id="row-${index}" class="${selectedIndices.has(index) ? 'selected' : ''}">
+                    <td class="check-col">
+                        <input type="checkbox" onchange="toggleSelection(${index})" ${selectedIndices.has(index) ? 'checked' : ''}>
+                    </td>
+                    <td><span style="color:var(--accent); font-weight:bold; font-size:12px;">${item.source}</span></td>
+                    <td>
+                        <div style="font-weight:bold; margin-bottom:4px;">${item.title}</div>
+                        <a href="${item.link}" target="_blank" style="font-size:12px; color:#64748b;">${item.link}</a>
+                    </td>
+                    <td>
+                        <button class="btn-capture" onclick="capture('${item.link}', '${item.source}', this)">📸</button>
+                    </td>
+                </tr>
+            `}).join('');
         }
-    }
 
-    function openEvidence(id) {
-        const item = allData.find(i => i.id === id);
-        if (!item || !item.evidenceImage) return;
-        document.getElementById('modalImg').src = item.evidenceImage;
-        document.getElementById('downloadLink').href = item.evidenceImage;
-        document.getElementById('downloadLink').download = item.filename;
-        document.getElementById('modal').style.display = 'flex';
-    }
-    function closeModal() { document.getElementById('modal').style.display = 'none'; }
-</script>
+        // --- 3. DMCA WIZARD LOGIC ---
+        
+        function startDMCAMode() {
+            if (currentResults.length === 0) return alert("No results to report!");
+
+            // 1. Identify unique sources
+            const sources = [...new Set(currentResults.map(r => r.source))];
+            
+            // 2. Build Filter Buttons
+            const filterContainer = document.getElementById('source-filters');
+            filterContainer.innerHTML = sources.map(s => 
+                `<button class="filter-chip" onclick="applyFilter('${s}')">${s}</button>`
+            ).join('');
+
+            // 3. Swap UI
+            document.getElementById('main-controls').style.display = 'none';
+            document.getElementById('dmca-controls').style.display = 'flex';
+            document.getElementById('mainTable').classList.add('dmca-mode');
+        }
+
+        function exitDMCAMode() {
+            activeSourceFilter = null;
+            selectedIndices.clear();
+            renderResults();
+            document.getElementById('main-controls').style.display = 'flex';
+            document.getElementById('dmca-controls').style.display = 'none';
+            document.getElementById('mainTable').classList.remove('dmca-mode');
+        }
+
+        function applyFilter(source) {
+            activeSourceFilter = source;
+            selectedIndices.clear(); // Reset selection when changing filter
+            renderResults();
+            updateGenerateBtn();
+        }
+
+        function toggleSelection(index) {
+            if (selectedIndices.has(index)) selectedIndices.delete(index);
+            else selectedIndices.add(index);
+            
+            const row = document.getElementById(`row-${index}`);
+            if(selectedIndices.has(index)) row.classList.add('selected');
+            else row.classList.remove('selected');
+
+            updateGenerateBtn();
+        }
+
+        function updateGenerateBtn() {
+            const btn = document.getElementById('generateBtn');
+            const count = selectedIndices.size;
+            if (count > 0) {
+                btn.innerText = `Generate Draft (${count})`;
+                btn.disabled = false;
+                btn.style.opacity = "1";
+            } else {
+                btn.innerText = "Select Items first";
+                btn.disabled = true;
+                btn.style.opacity = "0.5";
+            }
+        }
+
+        // --- 4. GENERATE & MODAL ---
+        function openDraftModal() {
+            const selectedItems = Array.from(selectedIndices).map(i => currentResults[i]);
+            
+            // Determine Email
+            let emailTo = "abuse@domain.com";
+            if (activeSourceFilter === 'Reddit') emailTo = "copyright@reddit.com";
+            else if (activeSourceFilter.includes('Pornhub')) emailTo = "copyright@pornhub.com";
+            else if (activeSourceFilter.includes('XVideos')) emailTo = "dmca@xvideos.com";
+            else if (activeSourceFilter.includes('XNXX')) emailTo = "copyright@xnxx.com";
+
+            // Build Body
+            let linksList = "";
+            selectedItems.forEach((item, idx) => {
+                linksList += `${idx + 1}. ${item.title}\n   URL: ${item.link}\n\n`;
+            });
+
+            const body = `To the Designated Copyright Agent,\n\nI am the copyright owner of the works listed below. I am writing to notify you that my copyrighted material is being used on your service without my authorization.\n\n=== THE INFRINGING WORKS ===\n\n${linksList}\n=== STATEMENT ===\n\nI have a good faith belief that the use of the material in the manner complained of is not authorized by the copyright owner, its agent, or the law.\n\nThe information in this notification is accurate, and under penalty of perjury, I am the owner of the exclusive right that is allegedly infringed.\n\nSincerely,\n[YOUR LEGAL NAME]`;
+
+            document.getElementById('draftText').value = body;
+            
+            // Setup Mailto Button
+            const subject = `DMCA Takedown Notice - Unauthorized Content (${selectedItems.length} items)`;
+            document.getElementById('mailtoLink').href = `mailto:${emailTo}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+            document.getElementById('draftModal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('draftModal').style.display = 'none';
+        }
+
+        function copyToClipboard() {
+            const copyText = document.getElementById("draftText");
+            copyText.select();
+            navigator.clipboard.writeText(copyText.value);
+            showToast("Text copied to clipboard!");
+        }
+
+        // --- 5. UTILS ---
+        async function capture(url, source, btn) {
+            btn.innerText = "...";
+            try {
+                await fetch('/capture', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url, source })
+                });
+                btn.innerText = "✅";
+                showToast("Screenshot Saved");
+            } catch (e) { btn.innerText = "❌"; }
+        }
+
+        function showToast(msg) {
+            const x = document.getElementById("toast");
+            x.innerText = msg;
+            x.className = "show";
+            setTimeout(() => { x.className = x.className.replace("show", ""); }, 3000);
+        }
+    </script>
 </body>
 </html>
