@@ -27,12 +27,14 @@
         #source-filters { display: none; gap: 10px; }
         .filter-chip { background: #0f172a; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; }
         .filter-chip:hover { background: var(--accent); color: #000; }
+        .filter-chip.active { background: var(--accent); color: #000; }
         
         /* Table */
         .results-card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 16px; text-align: left; border-bottom: 1px solid #334155; vertical-align: top; }
-        th { background: #0f172a; color: var(--accent); font-size: 13px; text-transform: uppercase; }
+        th { background: #0f172a; color: var(--accent); font-size: 13px; text-transform: uppercase; cursor: pointer; user-select: none; }
+        th:hover { color: white; }
         
         /* Badges */
         .badge-source { padding: 4px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: var(--accent); font-size: 11px; font-weight: bold; text-transform: uppercase; }
@@ -96,9 +98,9 @@
             <thead>
                 <tr>
                     <th class="check-col">Select</th>
-                    <th>Source</th>
-                    <th>Title / Link</th>
-                    <th>Date</th>
+                    <th onclick="sortData('source')">Source ↕</th>
+                    <th onclick="sortData('title')">Title / Link</th>
+                    <th onclick="sortData('date')">Date ↕</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -114,14 +116,11 @@
                 <span>📄 DMCA Draft Preview</span>
                 <span style="cursor:pointer;" onclick="closeModal()">✕</span>
             </div>
-            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Review the text below. Copy it and email it to the legal team.</p>
+            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Review the text below.</p>
             <textarea id="draftText" readonly></textarea>
             <div class="modal-footer">
                 <button class="btn-close" onclick="closeModal()">Close</button>
                 <button class="btn-copy" onclick="copyToClipboard()">📋 Copy Text</button>
-                <a id="mailtoLink" href="#" target="_blank" style="text-decoration:none;">
-                    <button class="btn-scan">📧 Open Email App</button>
-                </a>
             </div>
         </div>
     </div>
@@ -132,6 +131,15 @@
         let currentResults = [];
         let selectedIndices = new Set();
         let activeSourceFilter = null;
+        let sortDir = 1; // 1 = asc, -1 = desc
+
+        // --- INIT: ENTER KEY LISTENERS ---
+        document.getElementById('keywords').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') runScan();
+        });
+        document.getElementById('subs').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') runScan();
+        });
 
         // --- 1. SCAN LOGIC ---
         async function runScan() {
@@ -160,6 +168,9 @@
                 if (data.count > 0) {
                     dmcaBtn.style.color = "white";
                     dmcaBtn.style.background = "#ef4444";
+                } else {
+                    dmcaBtn.style.color = "#94a3b8";
+                    dmcaBtn.style.background = "#334155";
                 }
 
             } catch (err) { alert(err.message); } 
@@ -175,7 +186,7 @@
             }
 
             tbody.innerHTML = currentResults.map((item, index) => {
-                // Filter logic: If a filter is active, hide non-matching rows
+                // Filter logic
                 const isHidden = activeSourceFilter && item.source !== activeSourceFilter;
                 if (isHidden) return '';
 
@@ -192,27 +203,35 @@
                     <td style="font-size: 13px; color: #94a3b8;">${item.date || 'N/A'}</td>
                     <td>
                         <div id="action-area-${index}">
-                            <button class="btn-capture" style="padding: 6px 12px; font-size: 12px; background: #22c55e;" onclick="capture('${item.link}', '${item.source}', ${index})">📸 Capture</button>
+                            <button class="btn-capture" style="padding: 6px 12px; font-size: 12px; background: #22c55e;" onclick="captureItem(${index})">📸 Capture</button>
                         </div>
                     </td>
                 </tr>
             `}).join('');
         }
 
-        // --- 3. DMCA WIZARD LOGIC ---
+        // --- 3. SORT LOGIC ---
+        function sortData(key) {
+            sortDir = sortDir * -1; // Toggle direction
+            currentResults.sort((a, b) => {
+                let valA = a[key] || '';
+                let valB = b[key] || '';
+                if(valA < valB) return -1 * sortDir;
+                if(valA > valB) return 1 * sortDir;
+                return 0;
+            });
+            renderResults();
+        }
+
+        // --- 4. DMCA WIZARD LOGIC ---
         function startDMCAMode() {
             if (currentResults.length === 0) return alert("No results to report!");
-
-            // 1. Identify unique sources
             const sources = [...new Set(currentResults.map(r => r.source))];
-            
-            // 2. Build Filter Buttons
             const filterContainer = document.getElementById('source-filters');
             filterContainer.innerHTML = sources.map(s => 
                 `<button class="filter-chip" onclick="applyFilter('${s}')">${s}</button>`
             ).join('');
 
-            // 3. Swap UI
             document.getElementById('main-controls').style.display = 'none';
             document.getElementById('dmca-controls').style.display = 'flex';
             document.getElementById('mainTable').classList.add('dmca-mode');
@@ -221,6 +240,7 @@
         function exitDMCAMode() {
             activeSourceFilter = null;
             selectedIndices.clear();
+            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
             renderResults();
             document.getElementById('main-controls').style.display = 'flex';
             document.getElementById('dmca-controls').style.display = 'none';
@@ -229,7 +249,11 @@
 
         function applyFilter(source) {
             activeSourceFilter = source;
-            selectedIndices.clear(); // Reset selection when changing filter
+            selectedIndices.clear();
+            document.querySelectorAll('.filter-chip').forEach(c => {
+                if(c.innerText === source) c.classList.add('active');
+                else c.classList.remove('active');
+            });
             renderResults();
             updateGenerateBtn();
         }
@@ -259,18 +283,10 @@
             }
         }
 
-        // --- 4. GENERATE & MODAL ---
+        // --- 5. GENERATE & MODAL ---
         function openDraftModal() {
             const selectedItems = Array.from(selectedIndices).map(i => currentResults[i]);
             
-            // Determine Email
-            let emailTo = "abuse@domain.com";
-            if (activeSourceFilter === 'Reddit') emailTo = "copyright@reddit.com";
-            else if (activeSourceFilter && activeSourceFilter.includes('Pornhub')) emailTo = "copyright@pornhub.com";
-            else if (activeSourceFilter && activeSourceFilter.includes('XVideos')) emailTo = "dmca@xvideos.com";
-            else if (activeSourceFilter && activeSourceFilter.includes('XNXX')) emailTo = "copyright@xnxx.com";
-
-            // Build Body
             let linksList = "";
             selectedItems.forEach((item, idx) => {
                 linksList += `${idx + 1}. ${item.title}\n   URL: ${item.link}\n\n`;
@@ -279,11 +295,6 @@
             const body = `To the Designated Copyright Agent,\n\nI am the copyright owner of the works listed below. I am writing to notify you that my copyrighted material is being used on your service without my authorization.\n\n=== THE INFRINGING WORKS ===\n\n${linksList}\n=== STATEMENT ===\n\nI have a good faith belief that the use of the material in the manner complained of is not authorized by the copyright owner, its agent, or the law.\n\nThe information in this notification is accurate, and under penalty of perjury, I am the owner of the exclusive right that is allegedly infringed.\n\nSincerely,\n[YOUR LEGAL NAME]`;
 
             document.getElementById('draftText').value = body;
-            
-            // Setup Mailto Button
-            const subject = `DMCA Takedown Notice - Unauthorized Content (${selectedItems.length} items)`;
-            document.getElementById('mailtoLink').href = `mailto:${emailTo}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
             document.getElementById('draftModal').style.display = 'flex';
         }
 
@@ -298,8 +309,9 @@
             showToast("Text copied to clipboard!");
         }
 
-        // --- 5. UTILS ---
-        async function capture(url, source, index) {
+        // --- 6. UTILS (Fixed Capture) ---
+        async function captureItem(index) {
+            const item = currentResults[index]; // SAFE LOOKUP
             const container = document.getElementById(`action-area-${index}`);
             const btn = container.querySelector('button');
             btn.innerText = "...";
@@ -308,12 +320,11 @@
                 const res = await fetch('/capture', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url, source })
+                    body: JSON.stringify({ url: item.link, source: item.source })
                 });
                 const data = await res.json();
                 
                 if (data.success) {
-                    // Replace button with image preview
                     container.innerHTML = `<img src="${data.image}" class="preview-thumb" onclick="window.open('${data.image}', '_blank')">`;
                     showToast("Screenshot Saved");
                 } else {
@@ -322,6 +333,7 @@
                 }
             } catch (e) { 
                 btn.innerText = "❌ Error"; 
+                console.error(e);
             }
         }
 
