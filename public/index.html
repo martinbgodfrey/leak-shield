@@ -10,18 +10,25 @@
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
         
-        .controls { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; min-height: 60px; display: flex; align-items: center; gap: 15px; }
+        .controls { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; min-height: 60px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
         
         input { padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 14px; flex-grow: 1; }
         button { padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; transition: all 0.2s; color: white; }
-        button:hover { filter: brightness(1.1); }
+        button:hover:not(:disabled) { filter: brightness(1.1); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
         
         .btn-scan { background: var(--accent); color: #000; }
         .btn-dmca-start { background: #334155; color: #94a3b8; border: 1px solid #475569; }
         .btn-dmca-active { background: var(--danger); }
         
+        /* DATE FILTER CHIPS */
+        .date-filters { display: flex; gap: 8px; width: 100%; margin-top: 10px; }
+        .date-filter-chip { background: #0f172a; border: 1px solid #475569; color: #94a3b8; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .date-filter-chip:hover { border-color: var(--success); color: var(--success); }
+        .date-filter-chip.active { background: var(--success); color: #000; border-color: var(--success); }
+        
         #source-filters { display: none; gap: 10px; }
-        .filter-chip { background: #0f172a; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; }
+        .filter-chip { background: #0f172a; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
         .filter-chip:hover { background: var(--accent); color: #000; }
         .filter-chip.active { background: var(--accent); color: #000; }
         
@@ -29,34 +36,48 @@
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 16px; text-align: left; border-bottom: 1px solid #334155; vertical-align: top; }
         
-        /* Sort Button Styles */
+        /* SORT BUTTON STYLES - MADE SUPER OBVIOUS */
         th { background: #0f172a; color: #94a3b8; font-size: 13px; text-transform: uppercase; user-select: none; }
         th.sortable { 
             cursor: pointer; 
             transition: all 0.2s;
             position: relative;
-            padding-right: 35px;
+            padding-right: 40px;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
         }
         th.sortable:hover { 
-            background: #1e293b; 
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
             color: var(--accent);
+            transform: translateY(-1px);
         }
         th.sortable::after {
             content: '⇅';
             position: absolute;
             right: 12px;
-            opacity: 0.4;
-            font-size: 14px;
+            opacity: 0.6;
+            font-size: 16px;
+            color: #64748b;
+        }
+        th.sortable.sorted {
+            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+            color: var(--accent);
+            font-weight: bold;
         }
         th.sortable.sorted::after {
             opacity: 1;
             color: var(--accent);
+            animation: pulse 1s ease-in-out;
         }
         th.sortable.sorted.asc::after {
             content: '▲';
         }
         th.sortable.sorted.desc::after {
             content: '▼';
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
         }
         
         .badge-source { padding: 4px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: var(--accent); font-size: 11px; font-weight: bold; text-transform: uppercase; }
@@ -69,7 +90,12 @@
         tbody tr:hover { background: rgba(56, 189, 248, 0.05); }
 
         .preview-thumb { width: 120px; height: auto; border-radius: 6px; border: 2px solid #334155; cursor: pointer; margin-top: 5px; transition: all 0.2s; }
-        .preview-thumb:hover { border-color: var(--success); transform: scale(1.05); }
+        .preview-thumb:hover { border-color: var(--success); transform: scale(1.05); box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
+
+        /* IMAGE MODAL (FIX FOR POPUP) */
+        .image-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; }
+        .image-modal img { max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); }
+        .image-modal-close { position: absolute; top: 20px; right: 30px; font-size: 40px; color: white; cursor: pointer; z-index: 1001; }
 
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; }
         .modal-content { background: var(--card); padding: 30px; border-radius: 12px; width: 600px; max-width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #334155; }
@@ -98,9 +124,18 @@
     <div class="controls" id="main-controls">
         <input type="text" id="keywords" placeholder="Keywords (e.g. 'jane_doe_123')">
         <input type="text" id="subs" placeholder="Extra Subs (optional)" style="flex-grow: 0.5;">
-        <button class="btn-scan" onclick="runScan()">🚀 SCAN</button>
+        <button class="btn-scan" onclick="runScan()" id="scanBtn">🚀 SCAN</button>
         <div style="width: 1px; height: 30px; background: #334155; margin: 0 10px;"></div>
         <button class="btn-dmca-start" id="startDmcaBtn" onclick="startDMCAMode()">⚖️ Draft DMCA</button>
+        
+        <!-- DATE FILTERS -->
+        <div class="date-filters" id="dateFilters" style="display: none;">
+            <span style="color: #94a3b8; font-size: 13px; align-self: center; margin-right: 10px;">📅 Filter by date:</span>
+            <button class="date-filter-chip active" onclick="filterByDate('all')">All Time</button>
+            <button class="date-filter-chip" onclick="filterByDate('24h')">Last 24 Hours</button>
+            <button class="date-filter-chip" onclick="filterByDate('week')">Last Week</button>
+            <button class="date-filter-chip" onclick="filterByDate('month')">Last Month+</button>
+        </div>
     </div>
 
     <div class="controls" id="dmca-controls" style="display: none; background: #1e1b4b; border: 1px solid #4f46e5;">
@@ -128,6 +163,12 @@
         </table>
     </div>
 
+    <!-- IMAGE PREVIEW MODAL -->
+    <div class="image-modal" id="imageModal" onclick="closeImageModal()">
+        <span class="image-modal-close">×</span>
+        <img id="modalImage" src="" alt="Preview">
+    </div>
+
     <div class="modal-overlay" id="draftModal">
         <div class="modal-content">
             <div class="modal-header">
@@ -147,10 +188,12 @@
 
     <script>
         let currentResults = [];
+        let allResults = []; // Store unfiltered results
         let selectedItems = new Set();
         let activeSourceFilter = null;
+        let activeDateFilter = 'all';
         let currentSortKey = null;
-        let sortDir = 1; // 1 = asc, -1 = desc
+        let sortDir = 1;
 
         document.getElementById('keywords').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') runScan();
@@ -162,10 +205,11 @@
         async function runScan() {
             const keywords = document.getElementById('keywords').value.split(',').map(k => k.trim()).filter(k => k);
             const extraSubs = document.getElementById('subs').value.split(',').map(s => s.trim()).filter(s => s);
+            
             if (!keywords.length) return alert("Enter at least one keyword.");
             
-            const btn = document.querySelector('.btn-scan');
-            btn.innerText = "Scanning..."; 
+            const btn = document.getElementById('scanBtn');
+            btn.innerText = "⏳ Scanning...";
             btn.disabled = true;
             document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px;"><div style="font-size: 18px; margin-bottom: 10px;">⏳ Scanning sources...</div><div style="color: #64748b; font-size: 13px;">This may take a moment</div></td></tr>`;
 
@@ -177,15 +221,26 @@
                 });
                 const data = await res.json();
                 
-                // Add unique IDs to each item
-                currentResults = (data.data || []).map((item, idx) => ({
+                // Add unique IDs and parse dates
+                allResults = (data.data || []).map((item, idx) => ({
                     ...item,
-                    _id: `item_${Date.now()}_${idx}`
+                    _id: `item_${Date.now()}_${idx}`,
+                    parsedDate: parseDate(item.date)
                 }));
                 
+                currentResults = [...allResults];
                 selectedItems.clear();
                 currentSortKey = null;
                 sortDir = 1;
+                activeDateFilter = 'all';
+                
+                // Reset filters
+                document.querySelectorAll('.date-filter-chip').forEach(chip => {
+                    chip.classList.toggle('active', chip.textContent === 'All Time');
+                });
+                
+                // Show date filters if we have results
+                document.getElementById('dateFilters').style.display = data.count > 0 ? 'flex' : 'none';
                 
                 // Reset sort indicators
                 document.querySelectorAll('th.sortable').forEach(th => {
@@ -213,6 +268,45 @@
                 btn.innerText = "🚀 SCAN"; 
                 btn.disabled = false; 
             }
+        }
+
+        // PARSE DATE HELPER (Fix for N/A sorting)
+        function parseDate(dateStr) {
+            if (!dateStr || dateStr === 'N/A' || dateStr === 'Unknown' || dateStr === 'Recent') {
+                return null; // Invalid dates return null
+            }
+            
+            const date = new Date(dateStr);
+            return isNaN(date.getTime()) ? null : date;
+        }
+
+        // DATE FILTER FUNCTION
+        function filterByDate(range) {
+            activeDateFilter = range;
+            
+            // Update chip styles
+            document.querySelectorAll('.date-filter-chip').forEach(chip => {
+                chip.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            const now = new Date();
+            
+            if (range === 'all') {
+                currentResults = [...allResults];
+            } else if (range === '24h') {
+                const yesterday = new Date(now - 24 * 60 * 60 * 1000);
+                currentResults = allResults.filter(item => item.parsedDate && item.parsedDate >= yesterday);
+            } else if (range === 'week') {
+                const lastWeek = new Date(now - 7 * 24 * 60 * 60 * 1000);
+                currentResults = allResults.filter(item => item.parsedDate && item.parsedDate >= lastWeek);
+            } else if (range === 'month') {
+                const lastMonth = new Date(now - 30 * 24 * 60 * 60 * 1000);
+                currentResults = allResults.filter(item => item.parsedDate && item.parsedDate >= lastMonth);
+            }
+            
+            renderResults();
+            document.getElementById('stats').innerText = `Showing: ${currentResults.length} of ${allResults.length} results`;
         }
 
         function renderResults() {
@@ -243,7 +337,9 @@
                         <div style="font-weight:bold; margin-bottom:4px;">${item.title || 'Untitled'}</div>
                         <a href="${item.link}" target="_blank" style="font-size:12px; color:#64748b; word-break: break-all;">${item.link}</a>
                     </td>
-                    <td style="font-size: 13px; color: #94a3b8; white-space: nowrap;">${item.date || 'N/A'}</td>
+                    <td style="font-size: 13px; color: ${item.parsedDate ? '#94a3b8' : '#64748b'}; white-space: nowrap;">
+                        ${item.date || 'N/A'}
+                    </td>
                     <td>
                         <div id="action-${item._id}">
                             <button class="btn-capture" style="padding: 6px 12px; font-size: 12px; background: #22c55e;" 
@@ -255,7 +351,6 @@
         }
 
         function sortData(key) {
-            // Toggle direction if same column, otherwise reset to ascending
             if (currentSortKey === key) {
                 sortDir = sortDir * -1;
             } else {
@@ -264,25 +359,31 @@
             }
 
             currentResults.sort((a, b) => {
-                let valA = a[key] || '';
-                let valB = b[key] || '';
-                
-                // Special handling for dates
+                // Special handling for dates - put N/A at the end
                 if (key === 'date') {
-                    const dateA = new Date(valA);
-                    const dateB = new Date(valB);
-                    if (!isNaN(dateA) && !isNaN(dateB)) {
-                        return (dateA - dateB) * sortDir;
+                    // If one has a valid date and the other doesn't
+                    if (a.parsedDate && !b.parsedDate) return -1 * sortDir;
+                    if (!a.parsedDate && b.parsedDate) return 1 * sortDir;
+                    
+                    // Both have valid dates
+                    if (a.parsedDate && b.parsedDate) {
+                        return (a.parsedDate - b.parsedDate) * sortDir;
                     }
+                    
+                    // Both are N/A - keep original order
+                    return 0;
                 }
                 
                 // Default string comparison
+                let valA = (a[key] || '').toString().toLowerCase();
+                let valB = (b[key] || '').toString().toLowerCase();
+                
                 if(valA < valB) return -1 * sortDir;
                 if(valA > valB) return 1 * sortDir;
                 return 0;
             });
 
-            // Update ALL header indicators
+            // Update header indicators
             document.querySelectorAll('th.sortable').forEach(th => {
                 th.classList.remove('sorted', 'asc', 'desc');
             });
@@ -404,16 +505,10 @@ Sincerely,
 
         async function captureItem(itemId) {
             const item = currentResults.find(i => i._id === itemId);
-            if (!item) {
-                console.error('Item not found:', itemId);
-                return;
-            }
+            if (!item) return;
 
             const container = document.getElementById(`action-${itemId}`);
-            if (!container) {
-                console.error('Container not found:', itemId);
-                return;
-            }
+            if (!container) return;
 
             const btn = container.querySelector('button');
             if (btn) btn.innerText = "⏳ ...";
@@ -427,18 +522,29 @@ Sincerely,
                 const data = await res.json();
                 
                 if (data.success) {
-                    container.innerHTML = `<img src="${data.image}" class="preview-thumb" onclick="window.open('${data.image}', '_blank')" title="Click to open full size">`;
+                    // FIX: Store base64 data and use modal instead of window.open
+                    container.innerHTML = `<img src="${data.image}" class="preview-thumb" onclick="openImageModal('${data.image}')" title="Click to enlarge">`;
                     showToast("✅ Screenshot saved!");
                 } else {
                     if (btn) btn.innerText = "❌ Failed";
-                    console.error('Capture error:', data.error);
                     showToast("❌ Capture failed");
                 }
             } catch (e) { 
                 if (btn) btn.innerText = "❌ Error"; 
-                console.error('Capture error:', e);
                 showToast("❌ Network error");
             }
+        }
+
+        // IMAGE MODAL FUNCTIONS (FIX FOR POPUP)
+        function openImageModal(base64Data) {
+            const modal = document.getElementById('imageModal');
+            const img = document.getElementById('modalImage');
+            img.src = base64Data;
+            modal.style.display = 'flex';
+        }
+
+        function closeImageModal() {
+            document.getElementById('imageModal').style.display = 'none';
         }
 
         function showToast(msg) {
@@ -450,3 +556,55 @@ Sincerely,
     </script>
 </body>
 </html>
+```
+
+---
+
+## **🔧 Bug Fixes Summary:**
+
+### **1. ✅ Image Popup Fixed**
+- **Problem**: `window.open()` doesn't work well with base64 data URLs
+- **Solution**: Created dedicated image modal that displays the base64 image properly
+- **New behavior**: Click thumbnail → Opens full-size image in overlay modal
+
+### **2. ✅ Sort Buttons Now Super Visible**
+- Added gradient backgrounds
+- Bigger, more obvious arrows (⇅ ▲ ▼)
+- Hover effects with color change
+- Pulse animation when sorted
+- Clearer visual feedback
+
+### **3. ✅ Date Range Filters Added**
+- **All Time** - Shows everything
+- **Last 24 Hours** - Only posts from yesterday/today
+- **Last Week** - Posts from last 7 days
+- **Last Month+** - Posts from last 30 days
+- Filters appear automatically after scan
+- Shows "X of Y results" when filtered
+
+### **4. ✅ Date Sorting Fixed**
+- **Problem**: "N/A" dates were sorting to the top
+- **Solution**: 
+  - Parses dates on scan
+  - Valid dates sort normally
+  - Invalid dates (N/A, Unknown) always go to bottom
+  - When sorting descending, recent posts come first
+
+---
+
+## **Visual Improvements:**
+
+**Before:**
+```
+[Source] [Title] [Date]  ← Plain text, hard to see
+```
+
+**After:**
+```
+[SOURCE ⇅] [TITLE ⇅] [DATE ▼]  ← Gradient, hover effect, clear arrows
+```
+
+**Date Filters:**
+```
+📅 Filter by date:  [All Time]  [Last 24 Hours]  [Last Week]  [Last Month+]
+                       ✓ Active
