@@ -97,64 +97,94 @@ app.post('/capture', async (req, res) => {
         // ============================================
         // REDDIT SPECIFIC HANDLING (FIXED)
         // ============================================
-        if (hostname.includes('reddit')) {
+        // ============================================
+// REDDIT SPECIFIC HANDLING (FIXED)
+// ============================================
+if (hostname.includes('reddit')) {
+    try {
+        console.log("  🔧 Reddit detected - applying fixes...");
+        
+        // Wait for content to load
+        await page.waitForTimeout(2500);
+        
+        // FIRST: Handle "Mature Content" warning (MUST BE FIRST!)
+        const matureContentSelectors = [
+            'button:has-text("Yes, I\'m Over 18")',
+            'button:has-text("Yes, I'm Over 18")',
+            'button[data-testid="over-18-button"]',
+            'button:has-text("Continue")',
+            'button:has-text("Log In")'  // Sometimes this appears
+        ];
+        
+        for (const sel of matureContentSelectors) {
             try {
-                console.log("  🔧 Reddit detected - applying fixes...");
-                
-                // Wait for content to load
-                await page.waitForTimeout(2000);
-                
-                // Try to close any overlays/popups
-                const overlaySelectors = [
-                    'button[aria-label="Close"]',
-                    '.XPromoPopup__close',
-                    '[data-testid="xpromo-banner"] button',
-                    '.styled-outbound-link button'
-                ];
-                
-                for (const sel of overlaySelectors) {
-                    try {
-                        const btn = await page.$(sel);
-                        if (btn) {
-                            await btn.click();
-                            await page.waitForTimeout(500);
-                            console.log(`  ✓ Closed overlay: ${sel}`);
-                        }
-                    } catch (e) {}
+                const btn = await page.$(sel);
+                if (btn) {
+                    await btn.click({ timeout: 1000 });
+                    await page.waitForTimeout(2000);
+                    console.log(`  ✓ Clicked mature content: ${sel}`);
+                    break;
                 }
-                
-                // Expand image if present
-                const imageSelectors = [
-                    'div[data-test-id="post-content"] img',
-                    'img[alt*="Post image"]',
-                    'a.thumbnail img',
-                    '.media-element img'
-                ];
-                
-                for (const sel of imageSelectors) {
-                    try {
-                        const img = await page.$(sel);
-                        if (img) {
-                            await img.click({ timeout: 1000 });
-                            await page.waitForTimeout(1500);
-                            console.log(`  ✓ Expanded image: ${sel}`);
-                            break;
-                        }
-                    } catch (e) {}
-                }
-                
-                // Scroll to content
-                await page.evaluate(() => {
-                    const content = document.querySelector('[data-test-id="post-content"]');
-                    if (content) content.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                });
-                
-                await page.waitForTimeout(1000);
-                
-            } catch (e) { 
-                console.log("  ⚠️  Reddit interaction error:", e.message);
-            }
+            } catch (e) {}
         }
+        
+        // SECOND: Close other overlays/popups
+        const overlaySelectors = [
+            'button[aria-label="Close"]',
+            '.XPromoPopup__close',
+            '[data-testid="xpromo-banner"] button',
+            'button:has-text("Not now")',
+            'button:has-text("Maybe Later")',
+            '[aria-label="Close"]',
+            '.styled-outbound-link button'
+        ];
+        
+        for (const sel of overlaySelectors) {
+            try {
+                const btn = await page.$(sel);
+                if (btn) {
+                    await btn.click();
+                    await page.waitForTimeout(500);
+                    console.log(`  ✓ Closed overlay: ${sel}`);
+                }
+            } catch (e) {}
+        }
+        
+        // THIRD: Expand image if present
+        const imageSelectors = [
+            'div[data-test-id="post-content"] img',
+            'img[alt*="Post image"]',
+            'a.thumbnail img',
+            '.media-element img',
+            'a[data-click-id="image"] img'
+        ];
+        
+        for (const sel of imageSelectors) {
+            try {
+                const img = await page.$(sel);
+                if (img) {
+                    await img.click({ timeout: 1000 });
+                    await page.waitForTimeout(1500);
+                    console.log(`  ✓ Expanded image: ${sel}`);
+                    break;
+                }
+            } catch (e) {}
+        }
+        
+        // FOURTH: Scroll to content
+        await page.evaluate(() => {
+            const content = document.querySelector('[data-test-id="post-content"]') || 
+                           document.querySelector('.Post') ||
+                           document.querySelector('main');
+            if (content) content.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+        
+        await page.waitForTimeout(1500);
+        
+    } catch (e) { 
+        console.log("  ⚠️  Reddit interaction error:", e.message);
+    }
+}
         
         // ============================================
         // TUBE SITES HANDLING
