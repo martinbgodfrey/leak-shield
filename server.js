@@ -108,14 +108,13 @@ if (hostname.includes('reddit')) {
         await page.waitForTimeout(2500);
         
         // FIRST: Handle "Mature Content" warning (MUST BE FIRST!)
-        const matureContentSelectors = [
-            'button:has-text("Yes, I\'m Over 18")',
-            'button:has-text("Yes, I'm Over 18")',
-            'button[data-testid="over-18-button"]',
-            'button:has-text("Continue")',
-            'button:has-text("Log In")'  // Sometimes this appears
-        ];
-        
+      const matureContentSelectors = [
+    `button:has-text("Yes, I'm Over 18")',
+    'button[data-testid="over-18-button"]',
+    'button:has-text("Continue")',
+    'button:has-text("Log In")'
+];
+    
         for (const sel of matureContentSelectors) {
             try {
                 const btn = await page.$(sel);
