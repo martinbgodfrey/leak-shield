@@ -28,9 +28,36 @@
         .results-card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 16px; text-align: left; border-bottom: 1px solid #334155; vertical-align: top; }
-        th { background: #0f172a; color: var(--accent); font-size: 13px; text-transform: uppercase; cursor: pointer; user-select: none; }
-        th:hover { color: white; }
-        th.sorted { color: white; font-weight: bold; }
+        
+        /* Sort Button Styles */
+        th { background: #0f172a; color: #94a3b8; font-size: 13px; text-transform: uppercase; user-select: none; }
+        th.sortable { 
+            cursor: pointer; 
+            transition: all 0.2s;
+            position: relative;
+            padding-right: 35px;
+        }
+        th.sortable:hover { 
+            background: #1e293b; 
+            color: var(--accent);
+        }
+        th.sortable::after {
+            content: '⇅';
+            position: absolute;
+            right: 12px;
+            opacity: 0.4;
+            font-size: 14px;
+        }
+        th.sortable.sorted::after {
+            opacity: 1;
+            color: var(--accent);
+        }
+        th.sortable.sorted.asc::after {
+            content: '▲';
+        }
+        th.sortable.sorted.desc::after {
+            content: '▼';
+        }
         
         .badge-source { padding: 4px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: var(--accent); font-size: 11px; font-weight: bold; text-transform: uppercase; }
 
@@ -39,11 +66,12 @@
         input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--danger); }
         
         tr.selected { background: rgba(239, 68, 68, 0.1); }
+        tbody tr:hover { background: rgba(56, 189, 248, 0.05); }
 
-        .preview-thumb { width: 120px; height: auto; border-radius: 6px; border: 2px solid #334155; cursor: pointer; margin-top: 5px; }
-        .preview-thumb:hover { border-color: var(--success); }
+        .preview-thumb { width: 120px; height: auto; border-radius: 6px; border: 2px solid #334155; cursor: pointer; margin-top: 5px; transition: all 0.2s; }
+        .preview-thumb:hover { border-color: var(--success); transform: scale(1.05); }
 
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; }
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; }
         .modal-content { background: var(--card); padding: 30px; border-radius: 12px; width: 600px; max-width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #334155; }
         .modal-header { font-size: 20px; font-weight: bold; margin-bottom: 15px; display: flex; justify-content: space-between; }
         textarea { width: 100%; height: 300px; background: #0f172a; color: #cbd5e1; border: 1px solid #334155; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px; resize: none; }
@@ -51,7 +79,7 @@
         .btn-close { background: #334155; }
         .btn-copy { background: var(--success); }
 
-        #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 200; left: 50%; bottom: 30px; transform: translateX(-50%); }
+        #toast { visibility: hidden; min-width: 250px; background-color: #22c55e; color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 200; left: 50%; bottom: 30px; transform: translateX(-50%); font-weight: bold; }
         #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
         @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
         @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
@@ -88,9 +116,9 @@
             <thead>
                 <tr>
                     <th class="check-col">Select</th>
-                    <th onclick="sortData('source')" id="th-source">Source</th>
-                    <th onclick="sortData('title')" id="th-title">Title / Link</th>
-                    <th onclick="sortData('date')" id="th-date">Date</th>
+                    <th class="sortable" onclick="sortData('source')" id="th-source">Source</th>
+                    <th class="sortable" onclick="sortData('title')" id="th-title">Title</th>
+                    <th class="sortable" onclick="sortData('date')" id="th-date">Date</th>
                     <th>Action</th>
                 </tr>
             </thead>
@@ -104,10 +132,10 @@
         <div class="modal-content">
             <div class="modal-header">
                 <span>📄 DMCA Draft Preview</span>
-                <span style="cursor:pointer;" onclick="closeModal()">✕</span>
+                <span style="cursor:pointer; font-size: 24px;" onclick="closeModal()">✕</span>
             </div>
-            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Review the text below.</p>
-            <textarea id="draftText" readonly></textarea>
+            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Review and edit the text below, then copy.</p>
+            <textarea id="draftText"></textarea>
             <div class="modal-footer">
                 <button class="btn-close" onclick="closeModal()">Close</button>
                 <button class="btn-copy" onclick="copyToClipboard()">📋 Copy Text</button>
@@ -119,10 +147,10 @@
 
     <script>
         let currentResults = [];
-        let selectedItems = new Set(); // Changed to store item objects, not indices
+        let selectedItems = new Set();
         let activeSourceFilter = null;
         let currentSortKey = null;
-        let sortDir = 1;
+        let sortDir = 1; // 1 = asc, -1 = desc
 
         document.getElementById('keywords').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') runScan();
@@ -134,11 +162,12 @@
         async function runScan() {
             const keywords = document.getElementById('keywords').value.split(',').map(k => k.trim()).filter(k => k);
             const extraSubs = document.getElementById('subs').value.split(',').map(s => s.trim()).filter(s => s);
-            if (!keywords.length) return alert("Enter a keyword first.");
+            if (!keywords.length) return alert("Enter at least one keyword.");
             
             const btn = document.querySelector('.btn-scan');
-            btn.innerText = "Scanning..."; btn.disabled = true;
-            document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center;">Scanning...</td></tr>`;
+            btn.innerText = "Scanning..."; 
+            btn.disabled = true;
+            document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px;"><div style="font-size: 18px; margin-bottom: 10px;">⏳ Scanning sources...</div><div style="color: #64748b; font-size: 13px;">This may take a moment</div></td></tr>`;
 
             try {
                 const res = await fetch('/scan', {
@@ -151,13 +180,20 @@
                 // Add unique IDs to each item
                 currentResults = (data.data || []).map((item, idx) => ({
                     ...item,
-                    _id: `item_${Date.now()}_${idx}` // Unique identifier
+                    _id: `item_${Date.now()}_${idx}`
                 }));
                 
                 selectedItems.clear();
                 currentSortKey = null;
+                sortDir = 1;
+                
+                // Reset sort indicators
+                document.querySelectorAll('th.sortable').forEach(th => {
+                    th.classList.remove('sorted', 'asc', 'desc');
+                });
+                
                 renderResults();
-                document.getElementById('stats').innerText = `Found: ${data.count || 0}`;
+                document.getElementById('stats').innerText = `Found: ${data.count || 0} result${data.count !== 1 ? 's' : ''}`;
                 
                 const dmcaBtn = document.getElementById('startDmcaBtn');
                 if (data.count > 0) {
@@ -170,15 +206,19 @@
 
             } catch (err) { 
                 console.error(err);
-                alert("Error: " + err.message); 
+                alert("Error scanning: " + err.message);
+                document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center; color: #ef4444; padding: 30px;">❌ Scan failed. Check console.</td></tr>`;
             } 
-            finally { btn.innerText = "🚀 SCAN"; btn.disabled = false; }
+            finally { 
+                btn.innerText = "🚀 SCAN"; 
+                btn.disabled = false; 
+            }
         }
 
         function renderResults() {
             const tbody = document.getElementById('resultsBody');
             if (!currentResults.length) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: #64748b;">No results found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">No results found.</td></tr>`;
                 return;
             }
 
@@ -187,7 +227,7 @@
             );
 
             if (!filtered.length) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: #64748b;">No results match filter.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">No results match the selected filter.</td></tr>`;
                 return;
             }
 
@@ -200,10 +240,10 @@
                     </td>
                     <td><span class="badge-source">${item.source}</span></td>
                     <td>
-                        <div style="font-weight:bold; margin-bottom:4px;">${item.title}</div>
-                        <a href="${item.link}" target="_blank" style="font-size:12px; color:#64748b;">${item.link}</a>
+                        <div style="font-weight:bold; margin-bottom:4px;">${item.title || 'Untitled'}</div>
+                        <a href="${item.link}" target="_blank" style="font-size:12px; color:#64748b; word-break: break-all;">${item.link}</a>
                     </td>
-                    <td style="font-size: 13px; color: #94a3b8;">${item.date || 'N/A'}</td>
+                    <td style="font-size: 13px; color: #94a3b8; white-space: nowrap;">${item.date || 'N/A'}</td>
                     <td>
                         <div id="action-${item._id}">
                             <button class="btn-capture" style="padding: 6px 12px; font-size: 12px; background: #22c55e;" 
@@ -226,17 +266,31 @@
             currentResults.sort((a, b) => {
                 let valA = a[key] || '';
                 let valB = b[key] || '';
+                
+                // Special handling for dates
+                if (key === 'date') {
+                    const dateA = new Date(valA);
+                    const dateB = new Date(valB);
+                    if (!isNaN(dateA) && !isNaN(dateB)) {
+                        return (dateA - dateB) * sortDir;
+                    }
+                }
+                
+                // Default string comparison
                 if(valA < valB) return -1 * sortDir;
                 if(valA > valB) return 1 * sortDir;
                 return 0;
             });
 
-            // Update header indicators
-            document.querySelectorAll('th').forEach(th => th.classList.remove('sorted'));
+            // Update ALL header indicators
+            document.querySelectorAll('th.sortable').forEach(th => {
+                th.classList.remove('sorted', 'asc', 'desc');
+            });
+            
             const header = document.getElementById(`th-${key}`);
             if (header) {
                 header.classList.add('sorted');
-                header.innerHTML = `${key.charAt(0).toUpperCase() + key.slice(1)} ${sortDir === 1 ? '▲' : '▼'}`;
+                header.classList.add(sortDir === 1 ? 'asc' : 'desc');
             }
 
             renderResults();
@@ -267,7 +321,7 @@
 
         function applyFilter(source) {
             activeSourceFilter = source;
-            selectedItems.clear(); // Clear selections when changing filter
+            selectedItems.clear();
             document.querySelectorAll('.filter-chip').forEach(c => {
                 if(c.innerText === source) c.classList.add('active');
                 else c.classList.remove('active');
@@ -311,10 +365,27 @@
             
             let linksList = "";
             selectedObjects.forEach((item, idx) => {
-                linksList += `${idx + 1}. ${item.title}\n   URL: ${item.link}\n\n`;
+                linksList += `${idx + 1}. ${item.title || 'Untitled'}\n   URL: ${item.link}\n\n`;
             });
 
-            const body = `To the Designated Copyright Agent,\n\nI am the copyright owner of the works listed below. I am writing to notify you that my copyrighted material is being used on your service without my authorization.\n\n=== THE INFRINGING WORKS ===\n\n${linksList}\n=== STATEMENT ===\n\nI have a good faith belief that the use of the material in the manner complained of is not authorized by the copyright owner, its agent, or the law.\n\nThe information in this notification is accurate, and under penalty of perjury, I am the owner of the exclusive right that is allegedly infringed.\n\nSincerely,\n[YOUR LEGAL NAME]`;
+            const body = `To the Designated Copyright Agent,
+
+I am the copyright owner of the works listed below. I am writing to notify you that my copyrighted material is being used on your service without my authorization.
+
+=== THE INFRINGING WORKS ===
+
+${linksList}
+=== STATEMENT ===
+
+I have a good faith belief that the use of the material in the manner complained of is not authorized by the copyright owner, its agent, or the law.
+
+The information in this notification is accurate, and under penalty of perjury, I am the owner of the exclusive right that is allegedly infringed.
+
+Sincerely,
+[YOUR LEGAL NAME]
+[YOUR ADDRESS]
+[YOUR EMAIL]
+[YOUR PHONE]`;
 
             document.getElementById('draftText').value = body;
             document.getElementById('draftModal').style.display = 'flex';
@@ -328,7 +399,7 @@
             const copyText = document.getElementById("draftText");
             copyText.select();
             navigator.clipboard.writeText(copyText.value);
-            showToast("Text copied to clipboard!");
+            showToast("✅ Copied to clipboard!");
         }
 
         async function captureItem(itemId) {
@@ -345,7 +416,7 @@
             }
 
             const btn = container.querySelector('button');
-            if (btn) btn.innerText = "...";
+            if (btn) btn.innerText = "⏳ ...";
             
             try {
                 const res = await fetch('/capture', {
@@ -356,16 +427,17 @@
                 const data = await res.json();
                 
                 if (data.success) {
-                    container.innerHTML = `<img src="${data.image}" class="preview-thumb" onclick="window.open('${data.image}', '_blank')">`;
-                    showToast("Screenshot Saved");
+                    container.innerHTML = `<img src="${data.image}" class="preview-thumb" onclick="window.open('${data.image}', '_blank')" title="Click to open full size">`;
+                    showToast("✅ Screenshot saved!");
                 } else {
-                    if (btn) btn.innerText = "❌ Error";
-                    alert(data.error || 'Capture failed');
+                    if (btn) btn.innerText = "❌ Failed";
+                    console.error('Capture error:', data.error);
+                    showToast("❌ Capture failed");
                 }
             } catch (e) { 
                 if (btn) btn.innerText = "❌ Error"; 
                 console.error('Capture error:', e);
-                alert('Capture failed: ' + e.message);
+                showToast("❌ Network error");
             }
         }
 
