@@ -31,15 +31,22 @@
         /* Table */
         .results-card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 16px; text-align: left; border-bottom: 1px solid #334155; }
+        th, td { padding: 16px; text-align: left; border-bottom: 1px solid #334155; vertical-align: top; }
         th { background: #0f172a; color: var(--accent); font-size: 13px; text-transform: uppercase; }
         
+        /* Badges */
+        .badge-source { padding: 4px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: var(--accent); font-size: 11px; font-weight: bold; text-transform: uppercase; }
+
         /* Checkboxes (Hidden until DMCA mode) */
         .check-col { width: 40px; display: none; }
         .dmca-mode .check-col { display: table-cell; }
         input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--danger); }
         
         tr.selected { background: rgba(239, 68, 68, 0.1); }
+
+        /* Image Preview */
+        .preview-thumb { width: 120px; height: auto; border-radius: 6px; border: 2px solid #334155; cursor: pointer; margin-top: 5px; }
+        .preview-thumb:hover { border-color: var(--success); }
 
         /* --- THE MODAL --- */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; }
@@ -76,8 +83,8 @@
     </div>
 
     <div class="controls" id="dmca-controls" style="display: none; background: #1e1b4b; border: 1px solid #4f46e5;">
-        <span style="font-weight:bold; color: #a5b4fc;">Step 1: Select Platform</span>
-        <div id="source-filters" style="display:flex;">
+        <span style="font-weight:bold; color: #a5b4fc; margin-right: 10px;">Step 1: Filter by Source</span>
+        <div id="source-filters" style="display:flex; gap: 8px;">
             </div>
         <div style="flex-grow:1;"></div>
         <button id="generateBtn" class="btn-dmca-active" onclick="openDraftModal()" disabled style="opacity: 0.5;">Select Items first</button>
@@ -91,11 +98,12 @@
                     <th class="check-col">Select</th>
                     <th>Source</th>
                     <th>Title / Link</th>
+                    <th>Date</th>
                     <th>Action</th>
                 </tr>
             </thead>
             <tbody id="resultsBody">
-                <tr><td colspan="4" style="text-align:center; color: #64748b; padding: 30px;">Enter keywords and hit SCAN to start.</td></tr>
+                <tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">Enter keywords and hit SCAN to start.</td></tr>
             </tbody>
         </table>
     </div>
@@ -133,7 +141,7 @@
             
             const btn = document.querySelector('.btn-scan');
             btn.innerText = "Scanning..."; btn.disabled = true;
-            document.getElementById('resultsBody').innerHTML = `<tr><td colspan="4" style="text-align:center;">Scanning...</td></tr>`;
+            document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center;">Scanning...</td></tr>`;
 
             try {
                 const res = await fetch('/scan', {
@@ -162,7 +170,7 @@
         function renderResults() {
             const tbody = document.getElementById('resultsBody');
             if (!currentResults.length) {
-                tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;">No results found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No results found.</td></tr>`;
                 return;
             }
 
@@ -176,20 +184,22 @@
                     <td class="check-col">
                         <input type="checkbox" onchange="toggleSelection(${index})" ${selectedIndices.has(index) ? 'checked' : ''}>
                     </td>
-                    <td><span style="color:var(--accent); font-weight:bold; font-size:12px;">${item.source}</span></td>
+                    <td><span class="badge-source">${item.source}</span></td>
                     <td>
                         <div style="font-weight:bold; margin-bottom:4px;">${item.title}</div>
                         <a href="${item.link}" target="_blank" style="font-size:12px; color:#64748b;">${item.link}</a>
                     </td>
+                    <td style="font-size: 13px; color: #94a3b8;">${item.date || 'N/A'}</td>
                     <td>
-                        <button class="btn-capture" onclick="capture('${item.link}', '${item.source}', this)">📸</button>
+                        <div id="action-area-${index}">
+                            <button class="btn-capture" style="padding: 6px 12px; font-size: 12px; background: #22c55e;" onclick="capture('${item.link}', '${item.source}', ${index})">📸 Capture</button>
+                        </div>
                     </td>
                 </tr>
             `}).join('');
         }
 
         // --- 3. DMCA WIZARD LOGIC ---
-        
         function startDMCAMode() {
             if (currentResults.length === 0) return alert("No results to report!");
 
@@ -256,9 +266,9 @@
             // Determine Email
             let emailTo = "abuse@domain.com";
             if (activeSourceFilter === 'Reddit') emailTo = "copyright@reddit.com";
-            else if (activeSourceFilter.includes('Pornhub')) emailTo = "copyright@pornhub.com";
-            else if (activeSourceFilter.includes('XVideos')) emailTo = "dmca@xvideos.com";
-            else if (activeSourceFilter.includes('XNXX')) emailTo = "copyright@xnxx.com";
+            else if (activeSourceFilter && activeSourceFilter.includes('Pornhub')) emailTo = "copyright@pornhub.com";
+            else if (activeSourceFilter && activeSourceFilter.includes('XVideos')) emailTo = "dmca@xvideos.com";
+            else if (activeSourceFilter && activeSourceFilter.includes('XNXX')) emailTo = "copyright@xnxx.com";
 
             // Build Body
             let linksList = "";
@@ -289,17 +299,30 @@
         }
 
         // --- 5. UTILS ---
-        async function capture(url, source, btn) {
+        async function capture(url, source, index) {
+            const container = document.getElementById(`action-area-${index}`);
+            const btn = container.querySelector('button');
             btn.innerText = "...";
+            
             try {
-                await fetch('/capture', {
+                const res = await fetch('/capture', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ url, source })
                 });
-                btn.innerText = "✅";
-                showToast("Screenshot Saved");
-            } catch (e) { btn.innerText = "❌"; }
+                const data = await res.json();
+                
+                if (data.success) {
+                    // Replace button with image preview
+                    container.innerHTML = `<img src="${data.image}" class="preview-thumb" onclick="window.open('${data.image}', '_blank')">`;
+                    showToast("Screenshot Saved");
+                } else {
+                    btn.innerText = "❌ Error";
+                    alert(data.error);
+                }
+            } catch (e) { 
+                btn.innerText = "❌ Error"; 
+            }
         }
 
         function showToast(msg) {
