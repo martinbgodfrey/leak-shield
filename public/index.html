@@ -18,12 +18,23 @@
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         
         .btn-scan { background: var(--accent); color: #000; }
+        .btn-clear { background: #475569; color: white; }
         .btn-dmca-start { background: #334155; color: #94a3b8; border: 1px solid #475569; }
         .btn-dmca-active { background: var(--danger); }
         
+        /* FILTER SECTIONS */
+        .filter-section { display: none; width: 100%; margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155; }
+        .filter-section.active { display: flex; flex-direction: column; gap: 10px; }
+        .filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .filter-label { color: #94a3b8; font-size: 13px; font-weight: bold; min-width: 120px; }
+        
+        /* SOURCE FILTER CHIPS */
+        .source-filter-chip { background: #0f172a; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .source-filter-chip:hover { background: var(--accent); color: #000; }
+        .source-filter-chip.active { background: var(--accent); color: #000; }
+        
         /* DATE FILTER CHIPS */
-        .date-filters { display: flex; gap: 8px; width: 100%; margin-top: 10px; }
-        .date-filter-chip { background: #0f172a; border: 1px solid #475569; color: #94a3b8; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+        .date-filter-chip { background: #0f172a; border: 1px solid var(--success); color: #94a3b8; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
         .date-filter-chip:hover { border-color: var(--success); color: var(--success); }
         .date-filter-chip.active { background: var(--success); color: #000; border-color: var(--success); }
         
@@ -36,7 +47,6 @@
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 16px; text-align: left; border-bottom: 1px solid #334155; vertical-align: top; }
         
-        /* SORT BUTTON STYLES - MADE SUPER OBVIOUS */
         th { background: #0f172a; color: #94a3b8; font-size: 13px; text-transform: uppercase; user-select: none; }
         th.sortable { 
             cursor: pointer; 
@@ -66,19 +76,9 @@
         th.sortable.sorted::after {
             opacity: 1;
             color: var(--accent);
-            animation: pulse 1s ease-in-out;
         }
-        th.sortable.sorted.asc::after {
-            content: '▲';
-        }
-        th.sortable.sorted.desc::after {
-            content: '▼';
-        }
-        
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.2); }
-        }
+        th.sortable.sorted.asc::after { content: '▲'; }
+        th.sortable.sorted.desc::after { content: '▼'; }
         
         .badge-source { padding: 4px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: var(--accent); font-size: 11px; font-weight: bold; text-transform: uppercase; }
 
@@ -89,10 +89,15 @@
         tr.selected { background: rgba(239, 68, 68, 0.1); }
         tbody tr:hover { background: rgba(56, 189, 248, 0.05); }
 
-        .preview-thumb { width: 120px; height: auto; border-radius: 6px; border: 2px solid #334155; cursor: pointer; margin-top: 5px; transition: all 0.2s; }
+        /* IMAGE PREVIEW WITH BUTTONS */
+        .preview-container { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+        .preview-thumb { width: 120px; height: auto; border-radius: 6px; border: 2px solid #334155; cursor: pointer; transition: all 0.2s; }
         .preview-thumb:hover { border-color: var(--success); transform: scale(1.05); box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
+        .preview-buttons { display: flex; gap: 6px; }
+        .btn-preview { padding: 4px 10px; font-size: 11px; border-radius: 6px; cursor: pointer; border: none; font-weight: bold; }
+        .btn-view { background: var(--accent); color: #000; }
+        .btn-download { background: var(--success); color: #000; }
 
-        /* IMAGE MODAL (FIX FOR POPUP) */
         .image-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; }
         .image-modal img { max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); }
         .image-modal-close { position: absolute; top: 20px; right: 30px; font-size: 40px; color: white; cursor: pointer; z-index: 1001; }
@@ -125,16 +130,26 @@
         <input type="text" id="keywords" placeholder="Keywords (e.g. 'jane_doe_123')">
         <input type="text" id="subs" placeholder="Extra Subs (optional)" style="flex-grow: 0.5;">
         <button class="btn-scan" onclick="runScan()" id="scanBtn">🚀 SCAN</button>
+        <button class="btn-clear" onclick="clearSearch()" id="clearBtn" style="display:none;">🗑️ Clear</button>
         <div style="width: 1px; height: 30px; background: #334155; margin: 0 10px;"></div>
         <button class="btn-dmca-start" id="startDmcaBtn" onclick="startDMCAMode()">⚖️ Draft DMCA</button>
         
-        <!-- DATE FILTERS -->
-        <div class="date-filters" id="dateFilters" style="display: none;">
-            <span style="color: #94a3b8; font-size: 13px; align-self: center; margin-right: 10px;">📅 Filter by date:</span>
-            <button class="date-filter-chip active" onclick="filterByDate('all')">All Time</button>
-            <button class="date-filter-chip" onclick="filterByDate('24h')">Last 24 Hours</button>
-            <button class="date-filter-chip" onclick="filterByDate('week')">Last Week</button>
-            <button class="date-filter-chip" onclick="filterByDate('month')">Last Month+</button>
+        <!-- FILTERS (Hidden until results) -->
+        <div class="filter-section" id="filterSection">
+            <!-- SOURCE FILTERS -->
+            <div class="filter-row">
+                <span class="filter-label">🎯 Filter by Source:</span>
+                <div id="sourceFilterChips" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+            </div>
+            
+            <!-- DATE FILTERS -->
+            <div class="filter-row">
+                <span class="filter-label">📅 Filter by Date:</span>
+                <button class="date-filter-chip active" onclick="filterByDate('all')">All Time</button>
+                <button class="date-filter-chip" onclick="filterByDate('24h')">Last 24 Hours</button>
+                <button class="date-filter-chip" onclick="filterByDate('week')">Last Week</button>
+                <button class="date-filter-chip" onclick="filterByDate('month')">Last Month</button>
+            </div>
         </div>
     </div>
 
@@ -163,7 +178,6 @@
         </table>
     </div>
 
-    <!-- IMAGE PREVIEW MODAL -->
     <div class="image-modal" id="imageModal" onclick="closeImageModal()">
         <span class="image-modal-close">×</span>
         <img id="modalImage" src="" alt="Preview">
@@ -188,7 +202,7 @@
 
     <script>
         let currentResults = [];
-        let allResults = []; // Store unfiltered results
+        let allResults = [];
         let selectedItems = new Set();
         let activeSourceFilter = null;
         let activeDateFilter = 'all';
@@ -201,6 +215,20 @@
         document.getElementById('subs').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') runScan();
         });
+
+        function clearSearch() {
+            document.getElementById('keywords').value = '';
+            document.getElementById('subs').value = '';
+            document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">Enter keywords and hit SCAN to start.</td></tr>`;
+            document.getElementById('stats').innerText = 'Ready.';
+            document.getElementById('filterSection').classList.remove('active');
+            document.getElementById('clearBtn').style.display = 'none';
+            document.getElementById('startDmcaBtn').style.color = "#94a3b8";
+            document.getElementById('startDmcaBtn').style.background = "#334155";
+            allResults = [];
+            currentResults = [];
+            selectedItems.clear();
+        }
 
         async function runScan() {
             const keywords = document.getElementById('keywords').value.split(',').map(k => k.trim()).filter(k => k);
@@ -221,7 +249,6 @@
                 });
                 const data = await res.json();
                 
-                // Add unique IDs and parse dates
                 allResults = (data.data || []).map((item, idx) => ({
                     ...item,
                     _id: `item_${Date.now()}_${idx}`,
@@ -233,16 +260,27 @@
                 currentSortKey = null;
                 sortDir = 1;
                 activeDateFilter = 'all';
+                activeSourceFilter = null;
                 
-                // Reset filters
+                // Build source filter chips
+                const sources = [...new Set(allResults.map(r => r.source))];
+                const sourceChipsContainer = document.getElementById('sourceFilterChips');
+                sourceChipsContainer.innerHTML = `
+                    <button class="source-filter-chip active" onclick="filterBySource(null)">All Sources</button>
+                    ${sources.map(s => `<button class="source-filter-chip" onclick="filterBySource('${s}')">${s}</button>`).join('')}
+                `;
+                
+                // Reset date filters
                 document.querySelectorAll('.date-filter-chip').forEach(chip => {
                     chip.classList.toggle('active', chip.textContent === 'All Time');
                 });
                 
-                // Show date filters if we have results
-                document.getElementById('dateFilters').style.display = data.count > 0 ? 'flex' : 'none';
+                // Show filters and clear button if we have results
+                if (data.count > 0) {
+                    document.getElementById('filterSection').classList.add('active');
+                    document.getElementById('clearBtn').style.display = 'block';
+                }
                 
-                // Reset sort indicators
                 document.querySelectorAll('th.sortable').forEach(th => {
                     th.classList.remove('sorted', 'asc', 'desc');
                 });
@@ -270,41 +308,58 @@
             }
         }
 
-        // PARSE DATE HELPER (Fix for N/A sorting)
         function parseDate(dateStr) {
             if (!dateStr || dateStr === 'N/A' || dateStr === 'Unknown' || dateStr === 'Recent') {
-                return null; // Invalid dates return null
+                return null;
             }
-            
             const date = new Date(dateStr);
             return isNaN(date.getTime()) ? null : date;
         }
 
-        // DATE FILTER FUNCTION
+        function filterBySource(source) {
+            activeSourceFilter = source;
+            
+            document.querySelectorAll('.source-filter-chip').forEach(chip => {
+                chip.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            applyFilters();
+        }
+
         function filterByDate(range) {
             activeDateFilter = range;
             
-            // Update chip styles
             document.querySelectorAll('.date-filter-chip').forEach(chip => {
                 chip.classList.remove('active');
             });
             event.target.classList.add('active');
             
-            const now = new Date();
+            applyFilters();
+        }
+
+        function applyFilters() {
+            let filtered = [...allResults];
             
-            if (range === 'all') {
-                currentResults = [...allResults];
-            } else if (range === '24h') {
-                const yesterday = new Date(now - 24 * 60 * 60 * 1000);
-                currentResults = allResults.filter(item => item.parsedDate && item.parsedDate >= yesterday);
-            } else if (range === 'week') {
-                const lastWeek = new Date(now - 7 * 24 * 60 * 60 * 1000);
-                currentResults = allResults.filter(item => item.parsedDate && item.parsedDate >= lastWeek);
-            } else if (range === 'month') {
-                const lastMonth = new Date(now - 30 * 24 * 60 * 60 * 1000);
-                currentResults = allResults.filter(item => item.parsedDate && item.parsedDate >= lastMonth);
+            // Apply source filter
+            if (activeSourceFilter) {
+                filtered = filtered.filter(item => item.source === activeSourceFilter);
             }
             
+            // Apply date filter
+            const now = new Date();
+            if (activeDateFilter === '24h') {
+                const yesterday = new Date(now - 24 * 60 * 60 * 1000);
+                filtered = filtered.filter(item => item.parsedDate && item.parsedDate >= yesterday);
+            } else if (activeDateFilter === 'week') {
+                const lastWeek = new Date(now - 7 * 24 * 60 * 60 * 1000);
+                filtered = filtered.filter(item => item.parsedDate && item.parsedDate >= lastWeek);
+            } else if (activeDateFilter === 'month') {
+                const lastMonth = new Date(now - 30 * 24 * 60 * 60 * 1000);
+                filtered = filtered.filter(item => item.parsedDate && item.parsedDate >= lastMonth);
+            }
+            
+            currentResults = filtered;
             renderResults();
             document.getElementById('stats').innerText = `Showing: ${currentResults.length} of ${allResults.length} results`;
         }
@@ -312,20 +367,11 @@
         function renderResults() {
             const tbody = document.getElementById('resultsBody');
             if (!currentResults.length) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">No results found.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">No results match filters.</td></tr>`;
                 return;
             }
 
-            const filtered = currentResults.filter(item => 
-                !activeSourceFilter || item.source === activeSourceFilter
-            );
-
-            if (!filtered.length) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">No results match the selected filter.</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = filtered.map(item => {
+            tbody.innerHTML = currentResults.map(item => {
                 const isSelected = selectedItems.has(item._id);
                 return `
                 <tr class="${isSelected ? 'selected' : ''}" data-id="${item._id}">
@@ -359,22 +405,15 @@
             }
 
             currentResults.sort((a, b) => {
-                // Special handling for dates - put N/A at the end
                 if (key === 'date') {
-                    // If one has a valid date and the other doesn't
                     if (a.parsedDate && !b.parsedDate) return -1 * sortDir;
                     if (!a.parsedDate && b.parsedDate) return 1 * sortDir;
-                    
-                    // Both have valid dates
                     if (a.parsedDate && b.parsedDate) {
                         return (a.parsedDate - b.parsedDate) * sortDir;
                     }
-                    
-                    // Both are N/A - keep original order
                     return 0;
                 }
                 
-                // Default string comparison
                 let valA = (a[key] || '').toString().toLowerCase();
                 let valB = (b[key] || '').toString().toLowerCase();
                 
@@ -383,7 +422,6 @@
                 return 0;
             });
 
-            // Update header indicators
             document.querySelectorAll('th.sortable').forEach(th => {
                 th.classList.remove('sorted', 'asc', 'desc');
             });
@@ -402,7 +440,7 @@
             const sources = [...new Set(currentResults.map(r => r.source))];
             const filterContainer = document.getElementById('source-filters');
             filterContainer.innerHTML = sources.map(s => 
-                `<button class="filter-chip" onclick="applyFilter('${s}')">${s}</button>`
+                `<button class="filter-chip" onclick="applyDMCAFilter('${s}')">${s}</button>`
             ).join('');
 
             document.getElementById('main-controls').style.display = 'none';
@@ -411,7 +449,6 @@
         }
 
         function exitDMCAMode() {
-            activeSourceFilter = null;
             selectedItems.clear();
             document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
             renderResults();
@@ -420,14 +457,23 @@
             document.getElementById('mainTable').classList.remove('dmca-mode');
         }
 
-        function applyFilter(source) {
-            activeSourceFilter = source;
+        function applyDMCAFilter(source) {
             selectedItems.clear();
             document.querySelectorAll('.filter-chip').forEach(c => {
                 if(c.innerText === source) c.classList.add('active');
                 else c.classList.remove('active');
             });
-            renderResults();
+            
+            // Filter current view in DMCA mode
+            const tbody = document.getElementById('resultsBody');
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach(row => {
+                const badge = row.querySelector('.badge-source');
+                if (badge) {
+                    row.style.display = badge.innerText === source ? '' : 'none';
+                }
+            });
+            
             updateGenerateBtn();
         }
 
@@ -511,7 +557,10 @@ Sincerely,
             if (!container) return;
 
             const btn = container.querySelector('button');
-            if (btn) btn.innerText = "⏳ ...";
+            if (btn) {
+                btn.innerText = "📸 Capturing...";
+                btn.disabled = true;
+            }
             
             try {
                 const res = await fetch('/capture', {
@@ -522,20 +571,32 @@ Sincerely,
                 const data = await res.json();
                 
                 if (data.success) {
-                    // FIX: Store base64 data and use modal instead of window.open
-                    container.innerHTML = `<img src="${data.image}" class="preview-thumb" onclick="openImageModal('${data.image}')" title="Click to enlarge">`;
-                    showToast("✅ Screenshot saved!");
+                    container.innerHTML = `
+                        <div class="preview-container">
+                            <img src="${data.image}" class="preview-thumb" onclick="openImageModal('${data.image}')" title="Click to enlarge">
+                            <div class="preview-buttons">
+                                <button class="btn-preview btn-view" onclick="openImageModal('${data.image}')">👁️ View</button>
+                                <button class="btn-preview btn-download" onclick="downloadImage('${data.image}', '${data.filename}')">⬇️ Download</button>
+                            </div>
+                        </div>
+                    `;
+                    showToast("✅ Screenshot captured!");
                 } else {
-                    if (btn) btn.innerText = "❌ Failed";
+                    if (btn) {
+                        btn.innerText = "❌ Failed";
+                        btn.disabled = false;
+                    }
                     showToast("❌ Capture failed");
                 }
             } catch (e) { 
-                if (btn) btn.innerText = "❌ Error"; 
+                if (btn) {
+                    btn.innerText = "❌ Error";
+                    btn.disabled = false;
+                }
                 showToast("❌ Network error");
             }
         }
 
-        // IMAGE MODAL FUNCTIONS (FIX FOR POPUP)
         function openImageModal(base64Data) {
             const modal = document.getElementById('imageModal');
             const img = document.getElementById('modalImage');
@@ -547,6 +608,16 @@ Sincerely,
             document.getElementById('imageModal').style.display = 'none';
         }
 
+        function downloadImage(base64Data, filename) {
+            const link = document.createElement('a');
+            link.href = base64Data;
+            link.download = filename || 'screenshot.png';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast("⬇️ Download started!");
+        }
+
         function showToast(msg) {
             const x = document.getElementById("toast");
             x.innerText = msg;
@@ -556,55 +627,3 @@ Sincerely,
     </script>
 </body>
 </html>
-```
-
----
-
-## **🔧 Bug Fixes Summary:**
-
-### **1. ✅ Image Popup Fixed**
-- **Problem**: `window.open()` doesn't work well with base64 data URLs
-- **Solution**: Created dedicated image modal that displays the base64 image properly
-- **New behavior**: Click thumbnail → Opens full-size image in overlay modal
-
-### **2. ✅ Sort Buttons Now Super Visible**
-- Added gradient backgrounds
-- Bigger, more obvious arrows (⇅ ▲ ▼)
-- Hover effects with color change
-- Pulse animation when sorted
-- Clearer visual feedback
-
-### **3. ✅ Date Range Filters Added**
-- **All Time** - Shows everything
-- **Last 24 Hours** - Only posts from yesterday/today
-- **Last Week** - Posts from last 7 days
-- **Last Month+** - Posts from last 30 days
-- Filters appear automatically after scan
-- Shows "X of Y results" when filtered
-
-### **4. ✅ Date Sorting Fixed**
-- **Problem**: "N/A" dates were sorting to the top
-- **Solution**: 
-  - Parses dates on scan
-  - Valid dates sort normally
-  - Invalid dates (N/A, Unknown) always go to bottom
-  - When sorting descending, recent posts come first
-
----
-
-## **Visual Improvements:**
-
-**Before:**
-```
-[Source] [Title] [Date]  ← Plain text, hard to see
-```
-
-**After:**
-```
-[SOURCE ⇅] [TITLE ⇅] [DATE ▼]  ← Gradient, hover effect, clear arrows
-```
-
-**Date Filters:**
-```
-📅 Filter by date:  [All Time]  [Last 24 Hours]  [Last Week]  [Last Month+]
-                       ✓ Active
