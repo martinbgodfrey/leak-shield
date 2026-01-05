@@ -9,26 +9,16 @@ const PORT = process.env.PORT || 8080;
 app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 
-// ============================================
-// SCAN ENDPOINT (With Progress Streaming)
-// ============================================
 app.post('/scan', async (req, res) => {
     const { keywords, extraSubs } = req.body;
     
-    // Validate input
     if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
         return res.status(400).json({ success: false, error: 'Invalid keywords' });
     }
     
     try {
         console.log(`🔎 Scan: ${keywords.join(', ')} | Extra Subs: ${extraSubs?.length || 0}`);
-        
-        // Progress callback (optional - for future SSE implementation)
-        const progressCallback = (update) => {
-            console.log(`  ✓ ${update.source}: +${update.count} results`);
-        };
-        
-        const results = await scanKeywords(keywords, extraSubs || [], progressCallback);
+        const results = await scanKeywords(keywords, extraSubs || []);
         
         res.json({ 
             success: true, 
@@ -44,7 +34,7 @@ app.post('/scan', async (req, res) => {
 });
 
 // ============================================
-// CAPTURE ENDPOINT (Optimized)
+// CAPTURE ENDPOINT (FIXED REDDIT LOGIC)
 // ============================================
 app.post('/capture', async (req, res) => {
     const { url, source } = req.body;
@@ -99,45 +89,103 @@ app.post('/capture', async (req, res) => {
 
         // Load page with timeout
         try {
-            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20000 });
+            await page.goto(url, { waitUntil: 'networkidle', timeout: 25000 });
         } catch (e) { 
             console.log("  ⚠️  Page load timeout, continuing...");
         }
         
-        // Handle age gates / disclaimers
-        try {
-            const disclaimerSelectors = [
-                '#disclaimer_btn_enter',
-                '.disclaimer-btn',
-                'button:has-text("Enter")',
-                'a:has-text("Enter")'
-            ];
-            
-            for (const sel of disclaimerSelectors) {
-                try {
-                    if (await page.$(sel)) {
-                        await page.click(sel, { timeout: 1000 });
-                        await page.waitForTimeout(1500);
-                        break;
-                    }
-                } catch (e) {}
+        // ============================================
+        // REDDIT SPECIFIC HANDLING (FIXED)
+        // ============================================
+        if (hostname.includes('reddit')) {
+            try {
+                console.log("  🔧 Reddit detected - applying fixes...");
+                
+                // Wait for content to load
+                await page.waitForTimeout(2000);
+                
+                // Try to close any overlays/popups
+                const overlaySelectors = [
+                    'button[aria-label="Close"]',
+                    '.XPromoPopup__close',
+                    '[data-testid="xpromo-banner"] button',
+                    '.styled-outbound-link button'
+                ];
+                
+                for (const sel of overlaySelectors) {
+                    try {
+                        const btn = await page.$(sel);
+                        if (btn) {
+                            await btn.click();
+                            await page.waitForTimeout(500);
+                            console.log(`  ✓ Closed overlay: ${sel}`);
+                        }
+                    } catch (e) {}
+                }
+                
+                // Expand image if present
+                const imageSelectors = [
+                    'div[data-test-id="post-content"] img',
+                    'img[alt*="Post image"]',
+                    'a.thumbnail img',
+                    '.media-element img'
+                ];
+                
+                for (const sel of imageSelectors) {
+                    try {
+                        const img = await page.$(sel);
+                        if (img) {
+                            await img.click({ timeout: 1000 });
+                            await page.waitForTimeout(1500);
+                            console.log(`  ✓ Expanded image: ${sel}`);
+                            break;
+                        }
+                    } catch (e) {}
+                }
+                
+                // Scroll to content
+                await page.evaluate(() => {
+                    const content = document.querySelector('[data-test-id="post-content"]');
+                    if (content) content.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+                
+                await page.waitForTimeout(1000);
+                
+            } catch (e) { 
+                console.log("  ⚠️  Reddit interaction error:", e.message);
             }
-            
-            // Expand Reddit images
-            if (hostname.includes('reddit')) {
-                try {
-                    await page.click('div[data-test-id="post-content"] img', { timeout: 1000 });
-                    await page.waitForTimeout(1000);
-                } catch (e) {}
+        }
+        
+        // ============================================
+        // TUBE SITES HANDLING
+        // ============================================
+        if (hostname.includes('xnxx') || hostname.includes('xvideos') || hostname.includes('pornhub')) {
+            try {
+                const disclaimerSelectors = [
+                    '#disclaimer_btn_enter',
+                    '.disclaimer-btn',
+                    'button:has-text("Enter")',
+                    'a:has-text("Enter")'
+                ];
+                
+                for (const sel of disclaimerSelectors) {
+                    try {
+                        if (await page.$(sel)) {
+                            await page.click(sel, { timeout: 1000 });
+                            await page.waitForTimeout(1500);
+                            console.log(`  ✓ Clicked disclaimer: ${sel}`);
+                            break;
+                        }
+                    } catch (e) {}
+                }
+            } catch (e) { 
+                console.log("  ⚠️  Tube site interaction error:", e.message);
             }
-            
-        } catch (e) { 
-            console.log("  ⚠️  Interaction error:", e.message);
         }
 
         // Zoom out for better view
         await page.evaluate(() => { document.body.style.zoom = "0.75"; });
-        await page.waitForTimeout(1500);
+        await page.waitForTimeout(1000);
 
         // Capture screenshot
         const screenshotBuffer = await page.screenshot({ fullPage: false });
@@ -171,7 +219,6 @@ app.post('/capture', async (req, res) => {
     }
 });
 
-// Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
@@ -181,7 +228,6 @@ app.listen(PORT, () => {
     console.log(`🌐 Server running on port ${PORT}\n`);
 });
 
-// Graceful shutdown
 process.on('SIGTERM', async () => {
     console.log('\n🛑 Shutting down gracefully...');
     const { cleanup } = require('./scraper');

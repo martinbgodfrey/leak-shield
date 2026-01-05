@@ -604,9 +604,23 @@ Sincerely,
             modal.style.display = 'flex';
         }
 
-        function closeImageModal() {
+       function closeImageModal() {
             document.getElementById('imageModal').style.display = 'none';
         }
+
+        // ESC key to close image modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' || e.key === 'Esc') {
+                const imageModal = document.getElementById('imageModal');
+                const draftModal = document.getElementById('draftModal');
+                
+                if (imageModal.style.display === 'flex') {
+                    closeImageModal();
+                } else if (draftModal.style.display === 'flex') {
+                    closeModal();
+                }
+            }
+        });
 
         function downloadImage(base64Data, filename) {
             const link = document.createElement('a');
