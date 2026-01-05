@@ -33,9 +33,6 @@ app.post('/scan', async (req, res) => {
     }
 });
 
-// ============================================
-// CAPTURE ENDPOINT (FIXED REDDIT LOGIC)
-// ============================================
 app.post('/capture', async (req, res) => {
     const { url, source } = req.body;
     
@@ -65,7 +62,6 @@ app.post('/capture', async (req, res) => {
             deviceScaleFactor: 1
         });
 
-        // Site-specific cookies
         const cookies = [];
         const hostname = new URL(url).hostname;
 
@@ -87,107 +83,94 @@ app.post('/capture', async (req, res) => {
         
         const page = await context.newPage();
 
-        // Load page with timeout
         try {
             await page.goto(url, { waitUntil: 'networkidle', timeout: 25000 });
         } catch (e) { 
             console.log("  ⚠️  Page load timeout, continuing...");
         }
         
-        // ============================================
-        // REDDIT SPECIFIC HANDLING (FIXED)
-        // ============================================
-        // ============================================
-// REDDIT SPECIFIC HANDLING (FIXED)
-// ============================================
-if (hostname.includes('reddit')) {
-    try {
-        console.log("  🔧 Reddit detected - applying fixes...");
-        
-        // Wait for content to load
-        await page.waitForTimeout(2500);
-        
-        // FIRST: Handle "Mature Content" warning (MUST BE FIRST!)
-      const matureContentSelectors = [
-    `button:has-text("Yes, I'm Over 18")',
-    'button[data-testid="over-18-button"]',
-    'button:has-text("Continue")',
-    'button:has-text("Log In")'
-];
-    
-        for (const sel of matureContentSelectors) {
+        // REDDIT HANDLING
+        if (hostname.includes('reddit')) {
             try {
-                const btn = await page.$(sel);
-                if (btn) {
-                    await btn.click({ timeout: 1000 });
-                    await page.waitForTimeout(2000);
-                    console.log(`  ✓ Clicked mature content: ${sel}`);
-                    break;
+                console.log("  🔧 Reddit detected - applying fixes...");
+                
+                await page.waitForTimeout(2500);
+                
+                const matureContentSelectors = [
+                    `button:has-text("Yes, I'm Over 18")`,
+                    'button[data-testid="over-18-button"]',
+                    'button:has-text("Continue")',
+                    'button:has-text("Log In")'
+                ];
+                
+                for (const sel of matureContentSelectors) {
+                    try {
+                        const btn = await page.$(sel);
+                        if (btn) {
+                            await btn.click({ timeout: 1000 });
+                            await page.waitForTimeout(2000);
+                            console.log(`  ✓ Clicked mature content: ${sel}`);
+                            break;
+                        }
+                    } catch (e) {}
                 }
-            } catch (e) {}
+                
+                const overlaySelectors = [
+                    'button[aria-label="Close"]',
+                    '.XPromoPopup__close',
+                    '[data-testid="xpromo-banner"] button',
+                    'button:has-text("Not now")',
+                    'button:has-text("Maybe Later")',
+                    '[aria-label="Close"]',
+                    '.styled-outbound-link button'
+                ];
+                
+                for (const sel of overlaySelectors) {
+                    try {
+                        const btn = await page.$(sel);
+                        if (btn) {
+                            await btn.click();
+                            await page.waitForTimeout(500);
+                            console.log(`  ✓ Closed overlay: ${sel}`);
+                        }
+                    } catch (e) {}
+                }
+                
+                const imageSelectors = [
+                    'div[data-test-id="post-content"] img',
+                    'img[alt*="Post image"]',
+                    'a.thumbnail img',
+                    '.media-element img',
+                    'a[data-click-id="image"] img'
+                ];
+                
+                for (const sel of imageSelectors) {
+                    try {
+                        const img = await page.$(sel);
+                        if (img) {
+                            await img.click({ timeout: 1000 });
+                            await page.waitForTimeout(1500);
+                            console.log(`  ✓ Expanded image: ${sel}`);
+                            break;
+                        }
+                    } catch (e) {}
+                }
+                
+                await page.evaluate(() => {
+                    const content = document.querySelector('[data-test-id="post-content"]') || 
+                                   document.querySelector('.Post') ||
+                                   document.querySelector('main');
+                    if (content) content.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                });
+                
+                await page.waitForTimeout(1500);
+                
+            } catch (e) { 
+                console.log("  ⚠️  Reddit interaction error:", e.message);
+            }
         }
         
-        // SECOND: Close other overlays/popups
-        const overlaySelectors = [
-            'button[aria-label="Close"]',
-            '.XPromoPopup__close',
-            '[data-testid="xpromo-banner"] button',
-            'button:has-text("Not now")',
-            'button:has-text("Maybe Later")',
-            '[aria-label="Close"]',
-            '.styled-outbound-link button'
-        ];
-        
-        for (const sel of overlaySelectors) {
-            try {
-                const btn = await page.$(sel);
-                if (btn) {
-                    await btn.click();
-                    await page.waitForTimeout(500);
-                    console.log(`  ✓ Closed overlay: ${sel}`);
-                }
-            } catch (e) {}
-        }
-        
-        // THIRD: Expand image if present
-        const imageSelectors = [
-            'div[data-test-id="post-content"] img',
-            'img[alt*="Post image"]',
-            'a.thumbnail img',
-            '.media-element img',
-            'a[data-click-id="image"] img'
-        ];
-        
-        for (const sel of imageSelectors) {
-            try {
-                const img = await page.$(sel);
-                if (img) {
-                    await img.click({ timeout: 1000 });
-                    await page.waitForTimeout(1500);
-                    console.log(`  ✓ Expanded image: ${sel}`);
-                    break;
-                }
-            } catch (e) {}
-        }
-        
-        // FOURTH: Scroll to content
-        await page.evaluate(() => {
-            const content = document.querySelector('[data-test-id="post-content"]') || 
-                           document.querySelector('.Post') ||
-                           document.querySelector('main');
-            if (content) content.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
-        
-        await page.waitForTimeout(1500);
-        
-    } catch (e) { 
-        console.log("  ⚠️  Reddit interaction error:", e.message);
-    }
-}
-        
-        // ============================================
         // TUBE SITES HANDLING
-        // ============================================
         if (hostname.includes('xnxx') || hostname.includes('xvideos') || hostname.includes('pornhub')) {
             try {
                 const disclaimerSelectors = [
@@ -212,16 +195,13 @@ if (hostname.includes('reddit')) {
             }
         }
 
-        // Zoom out for better view
         await page.evaluate(() => { document.body.style.zoom = "0.75"; });
         await page.waitForTimeout(1000);
 
-        // Capture screenshot
         const screenshotBuffer = await page.screenshot({ fullPage: false });
         const base64Image = screenshotBuffer.toString('base64');
         const filename = `EVIDENCE_${source}_${Date.now()}.png`;
 
-        // Upload to Drive (async, don't wait)
         if (process.env.DRIVE_FOLDER_ID) {
             uploadScreenshot(screenshotBuffer, filename, process.env.DRIVE_FOLDER_ID)
                 .then(() => console.log(`  ✓ Uploaded to Drive: ${filename}`))
