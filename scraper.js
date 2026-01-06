@@ -31,27 +31,27 @@ async function scanKeywords(keywords, extraSubs = []) {
         { 
             name: 'Erome', 
             searchUrl: (k) => `https://www.erome.com/search?q=${encodeURIComponent(k)}`, 
-            container: '#room_rows .album',
+            container: '#room_rows .album'
         },
         { 
             name: 'SpankBang', 
             searchUrl: (k) => `https://spankbang.com/s/${encodeURIComponent(k)}/`, 
-            container: '.video-item',
+            container: '.video-item'
         },
         { 
             name: 'Pornhub', 
             searchUrl: (k) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(k)}`, 
-            container: '#videoSearchResult .pcVideoListItem',
+            container: '#videoSearchResult .pcVideoListItem'
         },
         { 
             name: 'XNXX', 
             searchUrl: (k) => `https://www.xnxx.com/search/${encodeURIComponent(k)}`, 
-            container: '.thumb-block',
+            container: '.thumb-block'
         },
         { 
             name: 'XVideos', 
             searchUrl: (k) => `https://www.xvideos.com/?k=${encodeURIComponent(k)}`, 
-            container: '.frame-block',
+            container: '.frame-block'
         }
     ];
 
@@ -61,24 +61,23 @@ async function scanKeywords(keywords, extraSubs = []) {
         for (const sub of finalRedditSubs) {
             try {
                 const searchLink = `https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(term)}&restrict_sr=on&sort=new&include_over_18=on`;
-                await page.goto(searchLink, { waitUntil: 'domcontentloaded', timeout: 8000 });
+                await page.goto(searchLink, { waitUntil: 'domcontentloaded', timeout: 4000 });
                 
                 const findings = await page.$$eval('.search-result-link', (els, sourceSub) => {
                     return els.map(el => {
                         const titleEl = el.querySelector('a.search-title');
                         const thumbEl = el.querySelector('.search-result-icon img');
                         const authorEl = el.querySelector('.author'); 
-                        const timeEl = el.querySelector('.search-time time');
                         
                         return { 
                             title: `[r/${sourceSub}] ${titleEl?.innerText || "Post"}`, 
                             link: titleEl?.href || "",
-                            date: timeEl?.getAttribute('datetime') || timeEl?.innerText || "Recent", 
+                            date: el.querySelector('.search-time time')?.innerText || "Recent", 
                             source: 'Reddit',
                             thumb: thumbEl?.src || null,
                             author: authorEl?.innerText || "Unknown"
                         };
-                    }).filter(item => item.link);
+                    });
                 }, sub);
                 
                 if(findings.length > 0) allFindings.push(...findings);
