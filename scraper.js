@@ -1,210 +1,97 @@
 const { chromium } = require('playwright');
 
-async function scanKeywords(keywords, extraSubs = []) {
+async function scanSingleSource(source, keywords, extraSubs = []) {
+    console.log(`\n🚀 Starting scan: ${source} | Keywords: ${keywords}`);
+    
     const browser = await chromium.launch({ 
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'] 
-    });
-    const context = await browser.newContext({
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled', '--disable-extensions'] 
     });
     
-    await context.addCookies([
-        { name: 'over18', value: '1', domain: '.reddit.com', path: '/' },
-        { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
-        { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' }
-    ]);
+    const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        viewport: { width: 1280, height: 720 }
+    });
 
     const page = await context.newPage();
     let allFindings = [];
 
-    const defaultSubs = [
-        'onlyfanshottest', 'onlyfans101', 'promotesyouronlyfans', 
-        'onlyfansmoms', 'onlyfansmilfs', 'sultsofonlyfans',
-        'OnlyFansAsstastic', 'leaked_content', 'OnlyFansPromotions',
-        'OnlyFansBusty', 'OnlyFansPetite'
-    ];
-    const cleanExtras = extraSubs.map(s => s.replace('r/', '').trim()).filter(s => s.length > 0);
-    const finalRedditSubs = [...new Set([...defaultSubs, ...cleanExtras])];
+    try {
+        // === REDDIT LOGIC ===
+        if (source === 'reddit') {
+            await context.addCookies([{ name: 'over18', value: '1', domain: '.reddit.com', path: '/' }]);
+            const defaultSubs = ['onlyfanshottest', 'onlyfans101', 'leaked_content', 'OnlyFansPromotions'];
+            const cleanExtras = extraSubs.map(s => s.replace('r/', '').trim()).filter(s => s);
+            const finalSubs = [...new Set([...defaultSubs, ...cleanExtras])];
 
-    const sites = [
-        { 
-            name: 'Redgifs', 
-            searchUrl: (k) => `https://www.redgifs.com/gifs/${encodeURIComponent(k)}`, 
-            container: 'a[href*="/watch/"], .gif-card',
-            extract: (el) => ({
-                title: el.querySelector('.title, h3')?.innerText || "Redgifs Video",
-                link: el.href || el.querySelector('a')?.href || "",
-                date: "Unknown",
-                thumb: el.querySelector('img')?.src
-            })
-        },
-        { 
-            name: 'Bunkr', 
-            searchUrl: (k) => `https://bunkr.si/search?q=${encodeURIComponent(k)}`, 
-            container: '.grid-item, .file-card',
-            extract: (el) => ({
-                title: el.querySelector('a')?.innerText?.trim() || "Bunkr File",
-                link: el.querySelector('a')?.href || "",
-                date: el.querySelector('.date')?.innerText || "Unknown",
-                thumb: el.querySelector('img')?.src
-            })
-        },
-        { 
-            name: 'Erome', 
-            searchUrl: (k) => `https://www.erome.com/search?q=${encodeURIComponent(k)}`, 
-            container: '#room_rows .album',
-            extract: (el) => ({
-                title: el.querySelector('.album-title')?.innerText || "Erome Album",
-                link: el.querySelector('a.album-link')?.href || "",
-                date: "Unknown",
-                thumb: el.querySelector('img.lazy')?.getAttribute('data-original')
-            })
-        },
-        { 
-            name: 'SpankBang', 
-            searchUrl: (k) => `https://spankbang.com/s/${encodeURIComponent(k)}/`, 
-            container: '.video-item',
-            extract: (el) => ({
-                title: el.querySelector('.n')?.innerText || "SpankBang Video",
-                link: el.querySelector('a.thumb')?.href || "",
-                date: el.querySelector('.d')?.innerText || "Unknown",
-                thumb: el.querySelector('img.cover')?.src
-            })
-        },
-        { 
-            name: 'Pornhub', 
-            searchUrl: (k) => `https://www.pornhub.com/video/search?search=${encodeURIComponent(k)}`, 
-            container: '#videoSearchResult .pcVideoListItem',
-            extract: (el) => {
-                const titleEl = el.querySelector('.title a') || el.querySelector('a[title]');
-                return {
-                    title: titleEl ? titleEl.getAttribute('title') : "Pornhub Video",
-                    link: titleEl ? "https://pornhub.com" + titleEl.getAttribute('href') : "",
-                    date: el.querySelector('.added')?.innerText || "Recent",
-                    thumb: el.querySelector('img')?.src
-                };
-            }
-        },
-        { 
-            name: 'XNXX', 
-            searchUrl: (k) => `https://www.xnxx.com/search/${encodeURIComponent(k)}`, 
-            container: '.thumb-block',
-            extract: (el) => {
-                if(el.closest('#related-videos')) return null;
-                const linkTag = el.querySelector('.thumb-under a');
-                return {
-                    title: linkTag?.getAttribute('title') || "XNXX Video",
-                    link: linkTag ? "https://xnxx.com" + linkTag.getAttribute('href') : "",
-                    date: "Unknown",
-                    thumb: el.querySelector('img')?.src
-                };
-            }
-        },
-        { 
-            name: 'XVideos', 
-            searchUrl: (k) => `https://www.xvideos.com/?k=${encodeURIComponent(k)}`, 
-            container: '.frame-block',
-            extract: (el) => {
-                const linkTag = el.querySelector('p.title a');
-                return {
-                    title: linkTag?.getAttribute('title') || "XVideos Video",
-                    link: linkTag ? "https://xvideos.com" + linkTag.getAttribute('href') : "",
-                    date: el.querySelector('.date')?.innerText || "Unknown",
-                    thumb: el.querySelector('img')?.src
-                };
-            }
-        }
-    ];
-
-    for (const term of keywords) {
-        
-        console.log(`🔎 [REDDIT] Scanning ${finalRedditSubs.length} subreddits for "${term}"...`);
-        for (const sub of finalRedditSubs) {
-            try {
-                const searchLink = `https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(term)}&restrict_sr=on&sort=new&include_over_18=on`;
-                await page.goto(searchLink, { waitUntil: 'domcontentloaded', timeout: 4000 });
-                
-                const findings = await page.$$eval('.search-result-link', (els, sourceSub) => {
-                    return els.map(el => {
-                        const titleEl = el.querySelector('a.search-title');
-                        const thumbEl = el.querySelector('.search-result-icon img');
-                        const authorEl = el.querySelector('.author'); 
+            for (const term of keywords) {
+                for (const sub of finalSubs) {
+                    try {
+                        const url = `https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(term)}&restrict_sr=on&sort=new&include_over_18=on`;
+                        await page.goto(url, { waitUntil: 'commit', timeout: 8000 });
                         
-                        return { 
-                            title: `[r/${sourceSub}] ${titleEl?.innerText || "Post"}`, 
-                            link: titleEl?.href || "",
-                            date: el.querySelector('.search-time time')?.innerText || "Recent", 
+                        // Smart Wait: Wait for results OR "there doesn't seem to be anything here"
+                        try { await page.waitForSelector('.search-result-link, .search-result-listing', { timeout: 3000 }); } catch(e){}
+
+                        const results = await page.$$eval('.search-result-link', (els, s) => els.map(el => ({
+                            title: `[r/${s}] ${el.querySelector('a.search-title')?.innerText}`,
+                            link: el.querySelector('a.search-title')?.href,
                             source: 'Reddit',
-                            thumb: thumbEl?.src || null,
-                            author: authorEl?.innerText || "Unknown"
-                        };
-                    });
-                }, sub);
+                            date: 'Recent'
+                        })), sub);
+                        
+                        if(results.length) allFindings.push(...results);
+                    } catch (e) { console.log(`   Skipped r/${sub}`); }
+                }
+            }
+        } 
+        // === TUBE SITES LOGIC ===
+        else {
+            for (const term of keywords) {
+                let url = '', sel = '';
                 
-                if(findings.length > 0) allFindings.push(...findings);
-            } catch (e) {}
-        }
+                if (source === 'pornhub') { 
+                    url = `https://www.pornhub.com/video/search?search=${encodeURIComponent(term)}&o=mr`; 
+                    sel = '#videoSearchResult .pcVideoListItem, .videoBox'; 
+                    await context.addCookies([{ name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' }]);
+                }
+                else if (source === 'xvideos') { url = `https://www.xvideos.com/?k=${encodeURIComponent(term)}&sort=uploaddate`; sel = '.thumb-block'; }
+                else if (source === 'xnxx') { url = `https://www.xnxx.com/?k=${encodeURIComponent(term)}&sort=uploaddate`; sel = '.thumb-block'; }
+                else if (source === 'erome') { url = `https://www.erome.com/search?q=${encodeURIComponent(term)}&sort=new`; sel = '#room_rows .album'; }
+                else if (source === 'bunkr') { url = `https://bunkr.si/search?q=${encodeURIComponent(term)}`; sel = '.grid-item, .file-card'; }
+                else if (source === 'spankbang') { url = `https://spankbang.com/s/${encodeURIComponent(term)}/?o=new`; sel = '.video-item'; }
 
-        for (const site of sites) {
-            try {
-                console.log(`🔎 [${site.name}] Checking "${term}"...`);
-                await page.goto(site.searchUrl(term), { waitUntil: 'domcontentloaded', timeout: 15000 });
+                if (!url) continue;
 
-                const findings = await page.$$eval(site.container, (els, { siteName }) => {
-                    return els.map(el => {
-                        let res = { title: "Found", link: "", date: "", source: siteName };
-                        
-                        if (siteName === 'Redgifs') {
-                            const a = el.tagName === 'A' ? el : el.querySelector('a');
-                            res.link = a?.href || "";
-                            res.title = el.querySelector('.title, h3')?.innerText || "Redgifs Video";
-                        }
-                        else if (siteName === 'Bunkr') {
-                            const a = el.querySelector('a');
-                            res.title = a?.innerText?.trim() || "Bunkr File";
-                            res.link = a?.href || "";
-                        }
-                        else if (siteName === 'Erome') {
-                            res.title = el.querySelector('.album-title')?.innerText;
-                            res.link = el.querySelector('a.album-link')?.href;
-                            res.thumb = el.querySelector('img.lazy')?.getAttribute('data-original');
-                        } 
-                        else if (siteName === 'SpankBang') {
-                            res.title = el.querySelector('.n')?.innerText;
-                            res.link = el.querySelector('a.thumb')?.href;
-                            res.date = el.querySelector('.d')?.innerText;
-                        } 
-                        else if (siteName === 'Pornhub') {
-                            const t = el.querySelector('.title a') || el.querySelector('a[title]');
-                            res.title = t?.getAttribute('title');
-                            res.link = t ? "https://pornhub.com" + t.getAttribute('href') : "";
-                            res.date = el.querySelector('.added')?.innerText;
-                        } 
-                        else if (siteName === 'XNXX') {
-                            if(el.closest('#related-videos')) return null;
-                            const t = el.querySelector('.thumb-under a');
-                            res.title = t?.getAttribute('title');
-                            res.link = t ? "https://xnxx.com" + t.getAttribute('href') : "";
-                        } 
-                        else if (siteName === 'XVideos') {
-                            const t = el.querySelector('p.title a');
-                            res.title = t?.getAttribute('title');
-                            res.link = t ? "https://xvideos.com" + t.getAttribute('href') : "";
-                        }
-                        
-                        return res;
-                    }).filter(i => i && i.link && i.title);
-                }, { siteName: site.name });
+                console.log(`  🔍 ${source}: ${term}`);
+                await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+                
+                // SMART WAIT: Wait up to 5s for the specific video container
+                try { await page.waitForSelector(sel, { state: 'attached', timeout: 5000 }); } catch(e) { console.log(`   ⚠️ No results for ${source}`); continue; }
 
-                allFindings.push(...findings);
-            } catch (e) { 
-                console.log(`  ✗ ${site.name} failed: ${e.message}`); 
+                const results = await page.$$eval(sel, (els, src) => els.slice(0, 20).map(el => {
+                    let t, l;
+                    const a = el.querySelector('a') || el.closest('a');
+                    if (!a) return null;
+
+                    if (src === 'pornhub') { t = a.getAttribute('title'); l = "https://pornhub.com" + a.getAttribute('href'); }
+                    else if (src === 'xvideos' || src === 'xnxx') { t = a.getAttribute('title') || a.innerText; l = a.href; }
+                    else if (src === 'erome') { t = el.querySelector('.album-title')?.innerText; l = el.querySelector('a.album-link')?.href; }
+                    else { t = a.innerText || "Video"; l = a.href; }
+
+                    return { title: t || "Found Result", link: l, source: src, date: "Recent" };
+                }).filter(x => x && x.link), source);
+
+                allFindings.push(...results);
             }
         }
+    } catch (e) {
+        console.error(`Scraper Error: ${e.message}`);
+    } finally {
+        await browser.close();
     }
-
-    await browser.close();
+    
     return [...new Map(allFindings.map(item => [item.link, item])).values()];
 }
 
-module.exports = { scanKeywords };
+module.exports = { scanSingleSource };

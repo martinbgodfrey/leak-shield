@@ -5,646 +5,84 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Digital Factory | Leak Monitor</title>
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #38bdf8; --danger: #ef4444; --success: #22c55e; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); padding: 20px; max-width: 1200px; margin: 0 auto; }
-        
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
-        
-        .controls { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
-        
-        input, select { padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 14px; }
-        input { flex-grow: 1; }
-        select { min-width: 200px; cursor: pointer; }
-        select:hover { border-color: var(--accent); }
-        
-        button { padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; transition: all 0.2s; color: white; }
-        button:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-        
-        .btn-scan { background: var(--accent); color: #000; }
-        .btn-clear { background: #475569; color: white; }
-        .btn-dmca-start { background: #334155; color: #94a3b8; border: 1px solid #475569; }
-        .btn-dmca-active { background: var(--danger); }
-        
-        /* PROGRESS BAR */
-        .progress-container { display: none; background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px solid var(--accent); }
-        .progress-container.active { display: block; }
-        .progress-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
-        .progress-bar-bg { height: 20px; background: #0f172a; border-radius: 10px; overflow: hidden; border: 1px solid #334155; }
-        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 11px; }
-        
-        /* FILTER SECTIONS */
-        .filter-section { display: none; width: 100%; margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155; }
-        .filter-section.active { display: flex; flex-direction: column; gap: 10px; }
-        .filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .filter-label { color: #94a3b8; font-size: 13px; font-weight: bold; min-width: 120px; }
-        
-        .source-filter-chip { background: #0f172a; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
-        .source-filter-chip:hover { background: var(--accent); color: #000; }
-        .source-filter-chip.active { background: var(--accent); color: #000; }
-        
-        .date-filter-chip { background: #0f172a; border: 1px solid var(--success); color: #94a3b8; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
-        .date-filter-chip:hover { border-color: var(--success); color: var(--success); }
-        .date-filter-chip.active { background: var(--success); color: #000; border-color: var(--success); }
-        
-        #source-filters { display: none; gap: 10px; }
-        .filter-chip { background: #0f172a; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
-        .filter-chip:hover { background: var(--accent); color: #000; }
-        .filter-chip.active { background: var(--accent); color: #000; }
-        
-        .results-card { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 16px; text-align: left; border-bottom: 1px solid #334155; vertical-align: top; }
-        
-        th { background: #0f172a; color: #94a3b8; font-size: 13px; text-transform: uppercase; user-select: none; }
-        th.sortable { cursor: pointer; transition: all 0.2s; position: relative; padding-right: 40px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
-        th.sortable:hover { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: var(--accent); transform: translateY(-1px); }
-        th.sortable::after { content: '⇅'; position: absolute; right: 12px; opacity: 0.6; font-size: 16px; color: #64748b; }
-        th.sortable.sorted { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: var(--accent); font-weight: bold; }
-        th.sortable.sorted::after { opacity: 1; color: var(--accent); }
-        th.sortable.sorted.asc::after { content: '▲'; }
-        th.sortable.sorted.desc::after { content: '▼'; }
-        
-        .badge-source { padding: 4px 8px; border-radius: 4px; background: rgba(56, 189, 248, 0.15); color: var(--accent); font-size: 11px; font-weight: bold; text-transform: uppercase; }
-
-        .check-col { width: 40px; display: none; }
-        .dmca-mode .check-col { display: table-cell; }
-        input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--danger); }
-        
-        tr.selected { background: rgba(239, 68, 68, 0.1); }
-        tbody tr:hover { background: rgba(56, 189, 248, 0.05); }
-
-        .preview-container { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
-        .preview-thumb { width: 120px; height: auto; border-radius: 6px; border: 2px solid #334155; cursor: pointer; transition: all 0.2s; }
-        .preview-thumb:hover { border-color: var(--success); transform: scale(1.05); box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
-        .preview-buttons { display: flex; gap: 6px; }
-        .btn-preview { padding: 4px 10px; font-size: 11px; border-radius: 6px; cursor: pointer; border: none; font-weight: bold; }
-        .btn-view { background: var(--accent); color: #000; }
-        .btn-download { background: var(--success); color: #000; }
-
-        .image-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; justify-content: center; align-items: center; }
-        .image-modal img { max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,0.8); }
-        .image-modal-close { position: absolute; top: 20px; right: 30px; font-size: 40px; color: white; cursor: pointer; z-index: 1001; }
-
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; }
-        .modal-content { background: var(--card); padding: 30px; border-radius: 12px; width: 600px; max-width: 90%; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); border: 1px solid #334155; }
-        .modal-header { font-size: 20px; font-weight: bold; margin-bottom: 15px; display: flex; justify-content: space-between; }
-        textarea { width: 100%; height: 300px; background: #0f172a; color: #cbd5e1; border: 1px solid #334155; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px; resize: none; }
-        .modal-footer { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
-        .btn-close { background: #334155; }
-        .btn-copy { background: var(--success); }
-
-        #toast { visibility: hidden; min-width: 250px; background-color: #22c55e; color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 200; left: 50%; bottom: 30px; transform: translateX(-50%); font-weight: bold; }
-        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
-        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
-        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #38bdf8; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; max-width: 1000px; margin: 0 auto; }
+        .controls { background: var(--card); padding: 20px; border-radius: 12px; display: flex; gap: 10px; margin-bottom: 20px; }
+        input, select { padding: 12px; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 8px; }
+        button { padding: 12px 24px; background: var(--accent); border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        button:hover { filter: brightness(1.1); }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #334155; }
+        th { background: #0f172a; color: var(--accent); }
+        a { color: var(--accent); text-decoration: none; }
     </style>
 </head>
 <body>
-
-    <div class="header">
-        <div>
-            <h1>Digital Factory</h1>
-            <p style="color: #94a3b8; margin-top: 5px;">Leak Monitor</p>
-        </div>
-        <div id="stats" style="text-align: right; font-size: 14px; color: #94a3b8;">Ready.</div>
-    </div>
-
-    <div class="controls" id="main-controls">
-        <input type="text" id="keywords" placeholder="Keywords (e.g. 'jane_doe_123')">
-        
+    <h1>Digital Factory <span style="color:#64748b; font-size: 0.6em;">Leak Monitor</span></h1>
+    
+    <div class="controls">
         <select id="sourceSelect">
-            <option value="">Select Source...</option>
-            <optgroup label="Social Media">
-                <option value="reddit">🔴 Reddit (All Subs)</option>
-            </optgroup>
-            <optgroup label="Tube Sites">
-                <option value="pornhub">🟠 Pornhub</option>
-                <option value="xvideos">🔴 XVideos</option>
-                <option value="xnxx">🟠 XNXX</option>
-                <option value="spankbang">🟣 SpankBang</option>
-                <option value="erome">🔵 Erome</option>
-            </optgroup>
-            <optgroup label="Leak Sites">
-                <option value="redgifs">🟢 Redgifs</option>
-                <option value="bunkr">⚪ Bunkr</option>
-            </optgroup>
+            <option value="reddit">Reddit (Social)</option>
+            <option value="pornhub">Pornhub</option>
+            <option value="xvideos">XVideos</option>
+            <option value="xnxx">XNXX</option>
+            <option value="erome">Erome</option>
+            <option value="bunkr">Bunkr</option>
+            <option value="spankbang">SpankBang</option>
         </select>
-        
-        <input type="text" id="subs" placeholder="Extra Subs (Reddit only)" style="flex-grow: 0.5;">
-        
-        <button class="btn-scan" onclick="runScan()" id="scanBtn">🚀 SCAN</button>
-        <button class="btn-clear" onclick="clearSearch()" id="clearBtn" style="display:none;">🗑️ Clear</button>
-        <div style="width: 1px; height: 30px; background: #334155; margin: 0 10px;"></div>
-        <button class="btn-dmca-start" id="startDmcaBtn" onclick="startDMCAMode()">⚖️ Draft DMCA</button>
-        
-        <div class="filter-section" id="filterSection">
-            <div class="filter-row">
-                <span class="filter-label">📅 Filter by Date:</span>
-                <button class="date-filter-chip active" onclick="filterByDate('all')">All Time</button>
-                <button class="date-filter-chip" onclick="filterByDate('24h')">Last 24 Hours</button>
-                <button class="date-filter-chip" onclick="filterByDate('week')">Last Week</button>
-                <button class="date-filter-chip" onclick="filterByDate('month')">Last Month</button>
-            </div>
-        </div>
+        <input type="text" id="keywords" placeholder="Keywords (e.g. 'jane doe')" style="flex-grow: 2;">
+        <input type="text" id="subs" placeholder="Extra Subs (Reddit Only)" style="flex-grow: 1;">
+        <button onclick="runScan()" id="scanBtn">SCAN</button>
     </div>
 
-    <!-- PROGRESS BAR -->
-    <div class="progress-container" id="progressContainer">
-        <div class="progress-header">
-            <span id="progressTitle">Scanning...</span>
-            <span id="progressStats">0%</span>
-        </div>
-        <div class="progress-bar-bg">
-            <div class="progress-bar-fill" id="progressFill" style="width: 0%;">0%</div>
-        </div>
-    </div>
+    <div id="stats" style="margin-bottom: 10px; color: #94a3b8;">Ready to scan.</div>
 
-    <div class="controls" id="dmca-controls" style="display: none; background: #1e1b4b; border: 1px solid #4f46e5;">
-        <span style="font-weight:bold; color: #a5b4fc; margin-right: 10px;">Step 1: Filter by Source</span>
-        <div id="source-filters" style="display:flex; gap: 8px;"></div>
-        <div style="flex-grow:1;"></div>
-        <button id="generateBtn" class="btn-dmca-active" onclick="openDraftModal()" disabled style="opacity: 0.5;">Select Items first</button>
-        <button class="btn-close" onclick="exitDMCAMode()">Cancel</button>
-    </div>
-
-    <div class="results-card">
-        <table id="mainTable">
-            <thead>
-                <tr>
-                    <th class="check-col">Select</th>
-                    <th class="sortable" onclick="sortData('source')" id="th-source">Source</th>
-                    <th class="sortable" onclick="sortData('title')" id="th-title">Title</th>
-                    <th class="sortable" onclick="sortData('date')" id="th-date">Date</th>
-                    <th>Action</th>
-                </tr>
-            </thead>
-            <tbody id="resultsBody">
-                <tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">Select a source and enter keywords to start.</td></tr>
-            </tbody>
-        </table>
-    </div>
-
-    <div class="image-modal" id="imageModal" onclick="closeImageModal()">
-        <span class="image-modal-close">×</span>
-        <img id="modalImage" src="" alt="Preview">
-    </div>
-
-    <div class="modal-overlay" id="draftModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <span>📄 DMCA Draft Preview</span>
-                <span style="cursor:pointer; font-size: 24px;" onclick="closeModal()">✕</span>
-            </div>
-            <p style="font-size: 13px; color: #94a3b8; margin-bottom: 10px;">Review and edit the text below, then copy.</p>
-            <textarea id="draftText"></textarea>
-            <div class="modal-footer">
-                <button class="btn-close" onclick="closeModal()">Close</button>
-                <button class="btn-copy" onclick="copyToClipboard()">📋 Copy Text</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="toast">Notification</div>
+    <table>
+        <thead><tr><th>Source</th><th>Title / Link</th><th>Date</th></tr></thead>
+        <tbody id="resultsBody"></tbody>
+    </table>
 
     <script>
-        let currentResults = [];
-        let allResults = [];
-        let selectedItems = new Set();
-        let activeDateFilter = 'all';
-        let currentSortKey = null;
-        let sortDir = 1;
-
-        document.getElementById('keywords').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') runScan();
-        });
-
-        function clearSearch() {
-            document.getElementById('keywords').value = '';
-            document.getElementById('subs').value = '';
-            document.getElementById('sourceSelect').value = '';
-            document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">Select a source and enter keywords to start.</td></tr>`;
-            document.getElementById('stats').innerText = 'Ready.';
-            document.getElementById('filterSection').classList.remove('active');
-            document.getElementById('clearBtn').style.display = 'none';
-            document.getElementById('startDmcaBtn').style.color = "#94a3b8";
-            document.getElementById('startDmcaBtn').style.background = "#334155";
-            allResults = [];
-            currentResults = [];
-            selectedItems.clear();
-        }
-
         async function runScan() {
-            const keywords = document.getElementById('keywords').value.split(',').map(k => k.trim()).filter(k => k);
             const source = document.getElementById('sourceSelect').value;
-            const extraSubs = document.getElementById('subs').value.split(',').map(s => s.trim()).filter(s => s);
+            const keywords = document.getElementById('keywords').value.split(',').map(k => k.trim()).filter(k=>k);
+            const extraSubs = document.getElementById('subs').value.split(',').map(s => s.trim()).filter(s=>s);
             
-            if (!keywords.length) return alert("Enter at least one keyword.");
-            if (!source) return alert("Select a source to scan.");
-            
+            if(!keywords.length) return alert("Enter a keyword");
+
             const btn = document.getElementById('scanBtn');
-            btn.innerText = "⏳ Scanning...";
-            btn.disabled = true;
+            const tbody = document.getElementById('resultsBody');
             
-            // Show progress
-            const progressContainer = document.getElementById('progressContainer');
-            const progressFill = document.getElementById('progressFill');
-            const progressTitle = document.getElementById('progressTitle');
-            const progressStats = document.getElementById('progressStats');
-            
-            progressContainer.classList.add('active');
-            progressFill.style.width = '0%';
-            progressFill.innerText = '0%';
-            progressTitle.innerText = `Scanning ${source.toUpperCase()}...`;
-            progressStats.innerText = '0%';
-            
-            document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px;"><div style="font-size: 18px; margin-bottom: 10px;">⏳ Scanning ${source}...</div></td></tr>`;
+            btn.innerText = "Scanning..."; btn.disabled = true;
+            tbody.innerHTML = `<tr><td colspan="3" style="text-align:center">⏳ Scanning ${source}... please wait.</td></tr>`;
 
             try {
-                // Simulate progress
-                let progress = 0;
-                const progressInterval = setInterval(() => {
-                    progress += 5;
-                    if (progress <= 90) {
-                        progressFill.style.width = `${progress}%`;
-                        progressFill.innerText = `${progress}%`;
-                        progressStats.innerText = `${progress}%`;
-                    }
-                }, 200);
-                
-                const res = await fetch('/scan-source', {
+                const res = await fetch('/scan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ keywords, source, extraSubs })
+                    body: JSON.stringify({ source, keywords, extraSubs })
                 });
                 const data = await res.json();
                 
-                clearInterval(progressInterval);
-                progressFill.style.width = '100%';
-                progressFill.innerText = '100%';
-                progressStats.innerText = `Complete! ${data.count} results`;
+                document.getElementById('stats').innerText = `Found: ${data.count || 0} results from ${source}`;
                 
-                allResults = (data.data || []).map((item, idx) => ({
-                    ...item,
-                    _id: `item_${Date.now()}_${idx}`,
-                    parsedDate: parseDate(item.date)
-                }));
-                
-                currentResults = [...allResults];
-                selectedItems.clear();
-                currentSortKey = null;
-                sortDir = 1;
-                activeDateFilter = 'all';
-                
-                document.querySelectorAll('.date-filter-chip').forEach(chip => {
-                    chip.classList.toggle('active', chip.textContent === 'All Time');
-                });
-                
-                if (data.count > 0) {
-                    document.getElementById('filterSection').classList.add('active');
-                    document.getElementById('clearBtn').style.display = 'block';
-                }
-                
-                document.querySelectorAll('th.sortable').forEach(th => {
-                    th.classList.remove('sorted', 'asc', 'desc');
-                });
-                
-                renderResults();
-                document.getElementById('stats').innerText = `Found: ${data.count || 0} result${data.count !== 1 ? 's' : ''}`;
-                
-                const dmcaBtn = document.getElementById('startDmcaBtn');
-                if (data.count > 0) {
-                    dmcaBtn.style.color = "white";
-                    dmcaBtn.style.background = "#ef4444";
+                if(!data.data || data.data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="3" style="text-align:center">No results found.</td></tr>`;
                 } else {
-                    dmcaBtn.style.color = "#94a3b8";
-                    dmcaBtn.style.background = "#334155";
+                    tbody.innerHTML = data.data.map(item => `
+                        <tr>
+                            <td><span style="background:rgba(56,189,248,0.1); color:#38bdf8; padding:4px 8px; border-radius:4px; font-size:0.8em;">${item.source}</span></td>
+                            <td>
+                                <div style="font-weight:bold;">${item.title}</div>
+                                <a href="${item.link}" target="_blank" style="font-size:0.9em;">${item.link}</a>
+                            </td>
+                            <td>${item.date}</td>
+                        </tr>
+                    `).join('');
                 }
-                
-                setTimeout(() => {
-                    progressContainer.classList.remove('active');
-                }, 2000);
-
-            } catch (err) { 
-                console.error(err);
-                alert("Error scanning: " + err.message);
-                document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center; color: #ef4444; padding: 30px;">❌ Scan failed. Check console.</td></tr>`;
-                progressContainer.classList.remove('active');
-            } 
-            finally { 
-                btn.innerText = "🚀 SCAN"; 
-                btn.disabled = false; 
-            }
+            } catch (err) { alert(err.message); }
+            finally { btn.innerText = "SCAN"; btn.disabled = false; }
         }
-
-        function parseDate(dateStr) {
-            if (!dateStr || dateStr === 'N/A' || dateStr === 'Unknown' || dateStr === 'Recent') {
-                return null;
-            }
-            const date = new Date(dateStr);
-            return isNaN(date.getTime()) ? null : date;
-        }
-
-        function filterByDate(range) {
-            activeDateFilter = range;
-            
-            document.querySelectorAll('.date-filter-chip').forEach(chip => {
-                chip.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            let filtered = [...allResults];
-            const now = new Date();
-            
-            if (range === '24h') {
-                const yesterday = new Date(now - 24 * 60 * 60 * 1000);
-                filtered = filtered.filter(item => item.parsedDate && item.parsedDate >= yesterday);
-            } else if (range === 'week') {
-                const lastWeek = new Date(now - 7 * 24 * 60 * 60 * 1000);
-                filtered = filtered.filter(item => item.parsedDate && item.parsedDate >= lastWeek);
-            } else if (range === 'month') {
-                const lastMonth = new Date(now - 30 * 24 * 60 * 60 * 1000);
-                filtered = filtered.filter(item => item.parsedDate && item.parsedDate >= lastMonth);
-            }
-            
-            currentResults = filtered;
-            renderResults();
-            document.getElementById('stats').innerText = `Showing: ${currentResults.length} of ${allResults.length} results`;
-        }
-
-        function renderResults() {
-            const tbody = document.getElementById('resultsBody');
-            if (!currentResults.length) {
-                tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">No results match filters.</td></tr>`;
-                return;
-            }
-
-            tbody.innerHTML = currentResults.map(item => {
-                const isSelected = selectedItems.has(item._id);
-                return `
-                <tr class="${isSelected ? 'selected' : ''}" data-id="${item._id}">
-                    <td class="check-col">
-                        <input type="checkbox" onchange="toggleSelection('${item._id}')" ${isSelected ? 'checked' : ''}>
-                    </td>
-                    <td><span class="badge-source">${item.source}</span></td>
-                    <td>
-                        <div style="font-weight:bold; margin-bottom:4px;">${item.title || 'Untitled'}</div>
-                        <a href="${item.link}" target="_blank" style="font-size:12px; color:#64748b; word-break: break-all;">${item.link}</a>
-                    </td>
-                    <td style="font-size: 13px; color: ${item.parsedDate ? '#94a3b8' : '#64748b'}; white-space: nowrap;">
-                        ${item.date || 'N/A'}
-                    </td>
-                    <td>
-                        <div id="action-${item._id}">
-                            <button class="btn-capture" style="padding: 6px 12px; font-size: 12px; background: #22c55e;" 
-                                onclick="captureItem('${item._id}')">📸 Capture</button>
-                        </div>
-                    </td>
-                </tr>
-            `}).join('');
-        }
-
-        function sortData(key) {
-            if (currentSortKey === key) {
-                sortDir = sortDir * -1;
-            } else {
-                currentSortKey = key;
-                sortDir = 1;
-            }
-
-            currentResults.sort((a, b) => {
-                if (key === 'date') {
-                    if (a.parsedDate && !b.parsedDate) return -1 * sortDir;
-                    if (!a.parsedDate && b.parsedDate) return 1 * sortDir;
-                    if (a.parsedDate && b.parsedDate) {
-                        return (a.parsedDate - b.parsedDate) * sortDir;
-                    }
-                    return 0;
-                }
-                
-                let valA = (a[key] || '').toString().toLowerCase();
-                let valB = (b[key] || '').toString().toLowerCase();
-                
-                if(valA < valB) return -1 * sortDir;
-                if(valA > valB) return 1 * sortDir;
-                return 0;
-            });
-
-            document.querySelectorAll('th.sortable').forEach(th => {
-                th.classList.remove('sorted', 'asc', 'desc');
-            });
-            
-            const header = document.getElementById(`th-${key}`);
-            if (header) {
-                header.classList.add('sorted');
-                header.classList.add(sortDir === 1 ? 'asc' : 'desc');
-            }
-
-            renderResults();
-        }
-
-        function startDMCAMode() {
-            if (currentResults.length === 0) return alert("No results to report!");
-            const sources = [...new Set(currentResults.map(r => r.source))];
-            const filterContainer = document.getElementById('source-filters');
-            filterContainer.innerHTML = sources.map(s => 
-                `<button class="filter-chip" onclick="applyDMCAFilter('${s}')">${s}</button>`
-            ).join('');
-
-            document.getElementById('main-controls').style.display = 'none';
-            document.getElementById('dmca-controls').style.display = 'flex';
-            document.getElementById('mainTable').classList.add('dmca-mode');
-        }
-
-        function exitDMCAMode() {
-            selectedItems.clear();
-            document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-            renderResults();
-            document.getElementById('main-controls').style.display = 'flex';
-            document.getElementById('dmca-controls').style.display = 'none';
-            document.getElementById('mainTable').classList.remove('dmca-mode');
-        }
-
-        function applyDMCAFilter(source) {
-            selectedItems.clear();
-            document.querySelectorAll('.filter-chip').forEach(c => {
-                if(c.innerText === source) c.classList.add('active');
-                else c.classList.remove('active');
-            });
-            
-            const tbody = document.getElementById('resultsBody');
-            const rows = tbody.querySelectorAll('tr');
-            rows.forEach(row => {
-                const badge = row.querySelector('.badge-source');
-                if (badge) {
-                    row.style.display = badge.innerText === source ? '' : 'none';
-                }
-            });
-            
-            updateGenerateBtn();
-        }
-
-        function toggleSelection(itemId) {
-            if (selectedItems.has(itemId)) {
-                selectedItems.delete(itemId);
-            } else {
-                selectedItems.add(itemId);
-            }
-            
-            const row = document.querySelector(`tr[data-id="${itemId}"]`);
-            if (row) {
-                row.classList.toggle('selected', selectedItems.has(itemId));
-                row.querySelector('input[type="checkbox"]').checked = selectedItems.has(itemId);
-            }
-
-            updateGenerateBtn();
-        }
-
-        function updateGenerateBtn() {
-            const btn = document.getElementById('generateBtn');
-            const count = selectedItems.size;
-            if (count > 0) {
-                btn.innerText = `Generate Draft (${count})`;
-                btn.disabled = false;
-                btn.style.opacity = "1";
-            } else {
-                btn.innerText = "Select Items first";
-                btn.disabled = true;
-                btn.style.opacity = "0.5";
-            }
-        }
-
-        function openDraftModal() {
-            const selectedObjects = currentResults.filter(item => selectedItems.has(item._id));
-            
-            let linksList = "";
-            selectedObjects.forEach((item, idx) => {
-                linksList += `${idx + 1}. ${item.title || 'Untitled'}\n   URL: ${item.link}\n\n`;
-            });
-
-            const body = `To the Designated Copyright Agent,
-
-I am the copyright owner of the works listed below. I am writing to notify you that my copyrighted material is being used on your service without my authorization.
-
-=== THE INFRINGING WORKS ===
-
-${linksList}
-=== STATEMENT ===
-
-I have a good faith belief that the use of the material in the manner complained of is not authorized by the copyright owner, its agent, or the law.
-
-The information in this notification is accurate, and under penalty of perjury, I am the owner of the exclusive right that is allegedly infringed.
-
-Sincerely,
-[YOUR LEGAL NAME]
-[YOUR ADDRESS]
-[YOUR EMAIL]
-[YOUR PHONE]`;
-
-            document.getElementById('draftText').value = body;
-            document.getElementById('draftModal').style.display = 'flex';
-        }
-
-        function closeModal() {
-            document.getElementById('draftModal').style.display = 'none';
-        }
-
-        function copyToClipboard() {
-            const copyText = document.getElementById("draftText");
-            copyText.select();
-            navigator.clipboard.writeText(copyText.value);
-            showToast("✅ Copied to clipboard!");
-        }
-
-        async function captureItem(itemId) {
-            const item = currentResults.find(i => i._id === itemId);
-            if (!item) return;
-
-            const container = document.getElementById(`action-${itemId}`);
-            if (!container) return;
-
-            const btn = container.querySelector('button');
-            if (btn) {
-                btn.innerText = "📸 Capturing...";
-                btn.disabled = true;
-            }
-            
-            try {
-                const res = await fetch('/capture', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: item.link, source: item.source })
-                });
-                const data = await res.json();
-                
-                if (data.success) {
-                    container.innerHTML = `
-                        <div class="preview-container">
-                            <img src="${data.image}" class="preview-thumb" onclick="openImageModal('${data.image}')" title="Click to enlarge">
-                            <div class="preview-buttons">
-                                <button class="btn-preview btn-view" onclick="openImageModal('${data.image}')">👁️ View</button>
-                                <button class="btn-preview btn-download" onclick="downloadImage('${data.image}', '${data.filename}')">⬇️ Download</button>
-                            </div>
-                        </div>
-                    `;
-                    showToast("✅ Screenshot captured!");
-                } else {
-                    if (btn) {
-                        btn.innerText = "❌ Failed";
-                        btn.disabled = false;
-                    }
-                    showToast("❌ Capture failed");
-                }
-            } catch (e) { 
-                if (btn) {
-                    btn.innerText = "❌ Error";
-                    btn.disabled = false;
-                }
-                showToast("❌ Network error");
-            }
-        }
-
-        function openImageModal(base64Data) {
-            const modal = document.getElementById('imageModal');
-            const img = document.getElementById('modalImage');
-            img.src = base64Data;
-            modal.style.display = 'flex';
-        }
-
-        function closeImageModal() {
-            document.getElementById('imageModal').style.display = 'none';
-        }
-
-        function downloadImage(base64Data, filename) {
-            const link = document.createElement('a');
-            link.href = base64Data;
-            link.download = filename || 'screenshot.png';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            showToast("⬇️ Download started!");
-        }
-
-        function showToast(msg) {
-            const x = document.getElementById("toast");
-            x.innerText = msg;
-            x.className = "show";
-            setTimeout(() => { x.className = x.className.replace("show", ""); }, 3000);
-        }
-
-        // ESC key to close modals
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' || e.key === 'Esc') {
-                const imageModal = document.getElementById('imageModal');
-                const draftModal = document.getElementById('draftModal');
-                
-                if (imageModal.style.display === 'flex') {
-                    closeImageModal();
-                } else if (draftModal.style.display === 'flex') {
-                    closeModal();
-                }
-            }
-        });
     </script>
 </body>
 </html>
