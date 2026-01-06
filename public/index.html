@@ -10,11 +10,15 @@
         
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 20px; }
         
-        .controls { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; min-height: 60px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .controls { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
         
-        input { padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 14px; flex-grow: 1; }
+        input, select { padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 14px; }
+        input { flex-grow: 1; }
+        select { min-width: 200px; cursor: pointer; }
+        select:hover { border-color: var(--accent); }
+        
         button { padding: 12px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; transition: all 0.2s; color: white; }
-        button:hover:not(:disabled) { filter: brightness(1.1); }
+        button:hover:not(:disabled) { filter: brightness(1.1); transform: translateY(-1px); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
         
         .btn-scan { background: var(--accent); color: #000; }
@@ -22,18 +26,23 @@
         .btn-dmca-start { background: #334155; color: #94a3b8; border: 1px solid #475569; }
         .btn-dmca-active { background: var(--danger); }
         
+        /* PROGRESS BAR */
+        .progress-container { display: none; background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px solid var(--accent); }
+        .progress-container.active { display: block; }
+        .progress-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; }
+        .progress-bar-bg { height: 20px; background: #0f172a; border-radius: 10px; overflow: hidden; border: 1px solid #334155; }
+        .progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--success)); transition: width 0.3s ease; display: flex; align-items: center; justify-content: center; color: #000; font-weight: bold; font-size: 11px; }
+        
         /* FILTER SECTIONS */
         .filter-section { display: none; width: 100%; margin-top: 15px; padding-top: 15px; border-top: 1px solid #334155; }
         .filter-section.active { display: flex; flex-direction: column; gap: 10px; }
         .filter-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .filter-label { color: #94a3b8; font-size: 13px; font-weight: bold; min-width: 120px; }
         
-        /* SOURCE FILTER CHIPS */
         .source-filter-chip { background: #0f172a; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
         .source-filter-chip:hover { background: var(--accent); color: #000; }
         .source-filter-chip.active { background: var(--accent); color: #000; }
         
-        /* DATE FILTER CHIPS */
         .date-filter-chip { background: #0f172a; border: 1px solid var(--success); color: #94a3b8; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
         .date-filter-chip:hover { border-color: var(--success); color: var(--success); }
         .date-filter-chip.active { background: var(--success); color: #000; border-color: var(--success); }
@@ -48,35 +57,11 @@
         th, td { padding: 16px; text-align: left; border-bottom: 1px solid #334155; vertical-align: top; }
         
         th { background: #0f172a; color: #94a3b8; font-size: 13px; text-transform: uppercase; user-select: none; }
-        th.sortable { 
-            cursor: pointer; 
-            transition: all 0.2s;
-            position: relative;
-            padding-right: 40px;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-        }
-        th.sortable:hover { 
-            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-            color: var(--accent);
-            transform: translateY(-1px);
-        }
-        th.sortable::after {
-            content: '⇅';
-            position: absolute;
-            right: 12px;
-            opacity: 0.6;
-            font-size: 16px;
-            color: #64748b;
-        }
-        th.sortable.sorted {
-            background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-            color: var(--accent);
-            font-weight: bold;
-        }
-        th.sortable.sorted::after {
-            opacity: 1;
-            color: var(--accent);
-        }
+        th.sortable { cursor: pointer; transition: all 0.2s; position: relative; padding-right: 40px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); }
+        th.sortable:hover { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: var(--accent); transform: translateY(-1px); }
+        th.sortable::after { content: '⇅'; position: absolute; right: 12px; opacity: 0.6; font-size: 16px; color: #64748b; }
+        th.sortable.sorted { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: var(--accent); font-weight: bold; }
+        th.sortable.sorted::after { opacity: 1; color: var(--accent); }
         th.sortable.sorted.asc::after { content: '▲'; }
         th.sortable.sorted.desc::after { content: '▼'; }
         
@@ -89,7 +74,6 @@
         tr.selected { background: rgba(239, 68, 68, 0.1); }
         tbody tr:hover { background: rgba(56, 189, 248, 0.05); }
 
-        /* IMAGE PREVIEW WITH BUTTONS */
         .preview-container { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
         .preview-thumb { width: 120px; height: auto; border-radius: 6px; border: 2px solid #334155; cursor: pointer; transition: all 0.2s; }
         .preview-thumb:hover { border-color: var(--success); transform: scale(1.05); box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3); }
@@ -128,21 +112,33 @@
 
     <div class="controls" id="main-controls">
         <input type="text" id="keywords" placeholder="Keywords (e.g. 'jane_doe_123')">
-        <input type="text" id="subs" placeholder="Extra Subs (optional)" style="flex-grow: 0.5;">
+        
+        <select id="sourceSelect">
+            <option value="">Select Source...</option>
+            <optgroup label="Social Media">
+                <option value="reddit">🔴 Reddit (All Subs)</option>
+            </optgroup>
+            <optgroup label="Tube Sites">
+                <option value="pornhub">🟠 Pornhub</option>
+                <option value="xvideos">🔴 XVideos</option>
+                <option value="xnxx">🟠 XNXX</option>
+                <option value="spankbang">🟣 SpankBang</option>
+                <option value="erome">🔵 Erome</option>
+            </optgroup>
+            <optgroup label="Leak Sites">
+                <option value="redgifs">🟢 Redgifs</option>
+                <option value="bunkr">⚪ Bunkr</option>
+            </optgroup>
+        </select>
+        
+        <input type="text" id="subs" placeholder="Extra Subs (Reddit only)" style="flex-grow: 0.5;">
+        
         <button class="btn-scan" onclick="runScan()" id="scanBtn">🚀 SCAN</button>
         <button class="btn-clear" onclick="clearSearch()" id="clearBtn" style="display:none;">🗑️ Clear</button>
         <div style="width: 1px; height: 30px; background: #334155; margin: 0 10px;"></div>
         <button class="btn-dmca-start" id="startDmcaBtn" onclick="startDMCAMode()">⚖️ Draft DMCA</button>
         
-        <!-- FILTERS (Hidden until results) -->
         <div class="filter-section" id="filterSection">
-            <!-- SOURCE FILTERS -->
-            <div class="filter-row">
-                <span class="filter-label">🎯 Filter by Source:</span>
-                <div id="sourceFilterChips" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
-            </div>
-            
-            <!-- DATE FILTERS -->
             <div class="filter-row">
                 <span class="filter-label">📅 Filter by Date:</span>
                 <button class="date-filter-chip active" onclick="filterByDate('all')">All Time</button>
@@ -150,6 +146,17 @@
                 <button class="date-filter-chip" onclick="filterByDate('week')">Last Week</button>
                 <button class="date-filter-chip" onclick="filterByDate('month')">Last Month</button>
             </div>
+        </div>
+    </div>
+
+    <!-- PROGRESS BAR -->
+    <div class="progress-container" id="progressContainer">
+        <div class="progress-header">
+            <span id="progressTitle">Scanning...</span>
+            <span id="progressStats">0%</span>
+        </div>
+        <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressFill" style="width: 0%;">0%</div>
         </div>
     </div>
 
@@ -173,7 +180,7 @@
                 </tr>
             </thead>
             <tbody id="resultsBody">
-                <tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">Enter keywords and hit SCAN to start.</td></tr>
+                <tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">Select a source and enter keywords to start.</td></tr>
             </tbody>
         </table>
     </div>
@@ -204,7 +211,6 @@
         let currentResults = [];
         let allResults = [];
         let selectedItems = new Set();
-        let activeSourceFilter = null;
         let activeDateFilter = 'all';
         let currentSortKey = null;
         let sortDir = 1;
@@ -212,14 +218,12 @@
         document.getElementById('keywords').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') runScan();
         });
-        document.getElementById('subs').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') runScan();
-        });
 
         function clearSearch() {
             document.getElementById('keywords').value = '';
             document.getElementById('subs').value = '';
-            document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">Enter keywords and hit SCAN to start.</td></tr>`;
+            document.getElementById('sourceSelect').value = '';
+            document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center; color: #64748b; padding: 30px;">Select a source and enter keywords to start.</td></tr>`;
             document.getElementById('stats').innerText = 'Ready.';
             document.getElementById('filterSection').classList.remove('active');
             document.getElementById('clearBtn').style.display = 'none';
@@ -232,22 +236,53 @@
 
         async function runScan() {
             const keywords = document.getElementById('keywords').value.split(',').map(k => k.trim()).filter(k => k);
+            const source = document.getElementById('sourceSelect').value;
             const extraSubs = document.getElementById('subs').value.split(',').map(s => s.trim()).filter(s => s);
             
             if (!keywords.length) return alert("Enter at least one keyword.");
+            if (!source) return alert("Select a source to scan.");
             
             const btn = document.getElementById('scanBtn');
             btn.innerText = "⏳ Scanning...";
             btn.disabled = true;
-            document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px;"><div style="font-size: 18px; margin-bottom: 10px;">⏳ Scanning sources...</div><div style="color: #64748b; font-size: 13px;">This may take a moment</div></td></tr>`;
+            
+            // Show progress
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressTitle = document.getElementById('progressTitle');
+            const progressStats = document.getElementById('progressStats');
+            
+            progressContainer.classList.add('active');
+            progressFill.style.width = '0%';
+            progressFill.innerText = '0%';
+            progressTitle.innerText = `Scanning ${source.toUpperCase()}...`;
+            progressStats.innerText = '0%';
+            
+            document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 40px;"><div style="font-size: 18px; margin-bottom: 10px;">⏳ Scanning ${source}...</div></td></tr>`;
 
             try {
-                const res = await fetch('/scan', {
+                // Simulate progress
+                let progress = 0;
+                const progressInterval = setInterval(() => {
+                    progress += 5;
+                    if (progress <= 90) {
+                        progressFill.style.width = `${progress}%`;
+                        progressFill.innerText = `${progress}%`;
+                        progressStats.innerText = `${progress}%`;
+                    }
+                }, 200);
+                
+                const res = await fetch('/scan-source', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ keywords, extraSubs })
+                    body: JSON.stringify({ keywords, source, extraSubs })
                 });
                 const data = await res.json();
+                
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+                progressFill.innerText = '100%';
+                progressStats.innerText = `Complete! ${data.count} results`;
                 
                 allResults = (data.data || []).map((item, idx) => ({
                     ...item,
@@ -260,22 +295,11 @@
                 currentSortKey = null;
                 sortDir = 1;
                 activeDateFilter = 'all';
-                activeSourceFilter = null;
                 
-                // Build source filter chips
-                const sources = [...new Set(allResults.map(r => r.source))];
-                const sourceChipsContainer = document.getElementById('sourceFilterChips');
-                sourceChipsContainer.innerHTML = `
-                    <button class="source-filter-chip active" onclick="filterBySource(null)">All Sources</button>
-                    ${sources.map(s => `<button class="source-filter-chip" onclick="filterBySource('${s}')">${s}</button>`).join('')}
-                `;
-                
-                // Reset date filters
                 document.querySelectorAll('.date-filter-chip').forEach(chip => {
                     chip.classList.toggle('active', chip.textContent === 'All Time');
                 });
                 
-                // Show filters and clear button if we have results
                 if (data.count > 0) {
                     document.getElementById('filterSection').classList.add('active');
                     document.getElementById('clearBtn').style.display = 'block';
@@ -296,11 +320,16 @@
                     dmcaBtn.style.color = "#94a3b8";
                     dmcaBtn.style.background = "#334155";
                 }
+                
+                setTimeout(() => {
+                    progressContainer.classList.remove('active');
+                }, 2000);
 
             } catch (err) { 
                 console.error(err);
                 alert("Error scanning: " + err.message);
                 document.getElementById('resultsBody').innerHTML = `<tr><td colspan="5" style="text-align:center; color: #ef4444; padding: 30px;">❌ Scan failed. Check console.</td></tr>`;
+                progressContainer.classList.remove('active');
             } 
             finally { 
                 btn.innerText = "🚀 SCAN"; 
@@ -316,17 +345,6 @@
             return isNaN(date.getTime()) ? null : date;
         }
 
-        function filterBySource(source) {
-            activeSourceFilter = source;
-            
-            document.querySelectorAll('.source-filter-chip').forEach(chip => {
-                chip.classList.remove('active');
-            });
-            event.target.classList.add('active');
-            
-            applyFilters();
-        }
-
         function filterByDate(range) {
             activeDateFilter = range;
             
@@ -335,26 +353,16 @@
             });
             event.target.classList.add('active');
             
-            applyFilters();
-        }
-
-        function applyFilters() {
             let filtered = [...allResults];
-            
-            // Apply source filter
-            if (activeSourceFilter) {
-                filtered = filtered.filter(item => item.source === activeSourceFilter);
-            }
-            
-            // Apply date filter
             const now = new Date();
-            if (activeDateFilter === '24h') {
+            
+            if (range === '24h') {
                 const yesterday = new Date(now - 24 * 60 * 60 * 1000);
                 filtered = filtered.filter(item => item.parsedDate && item.parsedDate >= yesterday);
-            } else if (activeDateFilter === 'week') {
+            } else if (range === 'week') {
                 const lastWeek = new Date(now - 7 * 24 * 60 * 60 * 1000);
                 filtered = filtered.filter(item => item.parsedDate && item.parsedDate >= lastWeek);
-            } else if (activeDateFilter === 'month') {
+            } else if (range === 'month') {
                 const lastMonth = new Date(now - 30 * 24 * 60 * 60 * 1000);
                 filtered = filtered.filter(item => item.parsedDate && item.parsedDate >= lastMonth);
             }
@@ -464,7 +472,6 @@
                 else c.classList.remove('active');
             });
             
-            // Filter current view in DMCA mode
             const tbody = document.getElementById('resultsBody');
             const rows = tbody.querySelectorAll('tr');
             rows.forEach(row => {
@@ -604,23 +611,9 @@ Sincerely,
             modal.style.display = 'flex';
         }
 
-       function closeImageModal() {
+        function closeImageModal() {
             document.getElementById('imageModal').style.display = 'none';
         }
-
-        // ESC key to close image modal
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' || e.key === 'Esc') {
-                const imageModal = document.getElementById('imageModal');
-                const draftModal = document.getElementById('draftModal');
-                
-                if (imageModal.style.display === 'flex') {
-                    closeImageModal();
-                } else if (draftModal.style.display === 'flex') {
-                    closeModal();
-                }
-            }
-        });
 
         function downloadImage(base64Data, filename) {
             const link = document.createElement('a');
@@ -638,6 +631,20 @@ Sincerely,
             x.className = "show";
             setTimeout(() => { x.className = x.className.replace("show", ""); }, 3000);
         }
+
+        // ESC key to close modals
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' || e.key === 'Esc') {
+                const imageModal = document.getElementById('imageModal');
+                const draftModal = document.getElementById('draftModal');
+                
+                if (imageModal.style.display === 'flex') {
+                    closeImageModal();
+                } else if (draftModal.style.display === 'flex') {
+                    closeModal();
+                }
+            }
+        });
     </script>
 </body>
 </html>
