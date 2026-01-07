@@ -96,54 +96,78 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                     searchUrl = `https://spankbang.com/s/${encodeURIComponent(term)}/?o=new`;
                     container = '.video-item';
                 } else if (source === 'redgifs') {
-                    // REDGIFS DIAGNOSTIC MODE
                     searchUrl = `https://www.redgifs.com/gifs?query=${encodeURIComponent(term)}&order=new`;
-                    waitTime = 8000;
+                    waitTime = 15000; // Much longer wait for SPA
                     
                     console.log(`  → ${searchUrl}`);
-                    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+                    await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 });
+                    
+                    // STEP 1: Accept cookie consent
+                    console.log(`  🍪 Accepting cookies...`);
+                    const cookieButtons = [
+                        'button:has-text("Accept")',
+                        'button:has-text("I Agree")',
+                        'button:has-text("Agree")',
+                        '[class*="accept"]',
+                        '[class*="consent"] button'
+                    ];
+                    
+                    for (const sel of cookieButtons) {
+                        try {
+                            const btn = await page.$(sel);
+                            if (btn) {
+                                await btn.click({ timeout: 1000 });
+                                console.log(`     ✓ Clicked cookie consent`);
+                                await page.waitForTimeout(2000);
+                                break;
+                            }
+                        } catch (e) {}
+                    }
+                    
+                    // STEP 2: Wait for content to load (SPA rendering)
+                    console.log(`  ⏳ Waiting for content to render...`);
                     await page.waitForTimeout(waitTime);
                     
-                    // DIAGNOSTIC: What's on the page?
+                    // STEP 3: Scroll to trigger lazy loading
+                    await page.evaluate(() => {
+                        window.scrollTo(0, 500);
+                    });
+                    await page.waitForTimeout(2000);
+                    
+                    await page.evaluate(() => {
+                        window.scrollTo(0, 1000);
+                    });
+                    await page.waitForTimeout(2000);
+                    
+                    // STEP 4: Diagnostics - what's there NOW?
                     const pageInfo = await page.evaluate(() => {
+                        const allLinks = Array.from(document.querySelectorAll('a'));
                         return {
                             title: document.title,
-                            bodyText: document.body.innerText.substring(0, 200),
-                            totalLinks: document.querySelectorAll('a').length,
-                            watchLinks: document.querySelectorAll('a[href*="watch"]').length,
+                            totalLinks: allLinks.length,
+                            watchLinks: allLinks.filter(a => a.href.includes('/watch/')).length,
                             gifElements: document.querySelectorAll('[class*="gif"]').length,
-                            cardElements: document.querySelectorAll('[class*="card"]').length,
-                            sampleHrefs: Array.from(document.querySelectorAll('a')).slice(0, 10).map(a => a.href)
+                            videoElements: document.querySelectorAll('video').length,
+                            imgElements: document.querySelectorAll('img').length,
+                            sampleWatchLinks: allLinks.filter(a => a.href.includes('/watch/')).slice(0, 5).map(a => a.href)
                         };
                     });
                     
-                    console.log(`  🔍 REDGIFS DIAGNOSTICS:`);
-                    console.log(`     Title: ${pageInfo.title}`);
-                    console.log(`     Body preview: ${pageInfo.bodyText}`);
+                    console.log(`  🔍 REDGIFS (after wait):`);
                     console.log(`     Total links: ${pageInfo.totalLinks}`);
                     console.log(`     Watch links: ${pageInfo.watchLinks}`);
                     console.log(`     Gif elements: ${pageInfo.gifElements}`);
-                    console.log(`     Card elements: ${pageInfo.cardElements}`);
-                    console.log(`     Sample URLs:`, pageInfo.sampleHrefs);
+                    console.log(`     Videos: ${pageInfo.videoElements}`);
+                    console.log(`     Images: ${pageInfo.imgElements}`);
+                    console.log(`     Sample watch links:`, pageInfo.sampleWatchLinks);
                     
-                    // Test selectors
-                    const testSelectors = [
-                        'a[href*="/watch/"]',
-                        'a[href^="/watch/"]',
-                        '[class*="gif"] a',
-                        '[class*="card"] a'
-                    ];
-                    
-                    let bestSelector = '';
-                    let maxCount = 0;
-                    
-                    for (const sel of testSelectors) {
-                        const count = await page.$$eval(sel, els => els.length).catch(() => 0);
-                        console.log(`     Selector "${sel}": ${count} elements`);
-                        if (count > maxCount) {
-                            maxCount = count;
-                            bestSelector = sel;
-                        }
+                    // STEP 5: Try to extract
+                    if (pageInfo.watchLinks > 0) {
+                        container = 'a[href*="/watch/"]';
+                        console.log(`  ✓ Using selector: ${container}`);
+                    } else {
+                        console.log(`  ✗ Still no content - Redgifs may require authentication or different approach`);
+                        continue;
                     }
                     
                     if (maxCount > 0) {
