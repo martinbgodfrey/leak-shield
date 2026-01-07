@@ -108,8 +108,7 @@ app.post('/capture', async (req, res) => {
                 { name: 'kt_age_confirmed', value: 'true', domain: '.spankbang.com', path: '/' },
                 { name: 'kt_tconsent', value: '1', domain: '.spankbang.com', path: '/' }
             );
-        } else if (hostname.includes('redgifs')) {
-            cookies.push({ name: 'isAdult', value: 'true', domain: '.redgifs.com', path: '/' });
+        
         }
 
         if (cookies.length > 0) {
