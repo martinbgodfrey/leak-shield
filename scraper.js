@@ -16,8 +16,7 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
     await context.addCookies([
         { name: 'over18', value: '1', domain: '.reddit.com', path: '/' },
         { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
-        { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' },
-        { name: 'isAdult', value: 'true', domain: '.redgifs.com', path: '/' }
+        { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' }
     ]);
 
     const page = await context.newPage();
@@ -41,10 +40,8 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
             for (const sub of finalSubs) {
                 try {
                     const url = `https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(term)}&restrict_sr=on&sort=new&include_over_18=on&t=all`;
-                    console.log(`  🔍 r/${sub}`);
-                    
                     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
-                    await page.waitForTimeout(1500);
+                    await page.waitForTimeout(2000);
                     
                     const results = await page.$$eval('.search-result-link', (els, sourceSub) => {
                         return els.map(el => {
@@ -65,11 +62,11 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                     }, sub);
                     
                     if (results.length > 0) {
-                        console.log(`    ✓ Found ${results.length}`);
+                        console.log(`  ✓ r/${sub}: ${results.length}`);
                         allFindings.push(...results);
                     }
                 } catch (e) {
-                    console.log(`    ✗ Error: ${e.message}`);
+                    console.log(`  ✗ r/${sub}: ${e.message}`);
                 }
             }
         }
@@ -96,99 +93,18 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                     searchUrl = `https://spankbang.com/s/${encodeURIComponent(term)}/?o=new`;
                     container = '.video-item';
                 } else if (source === 'redgifs') {
-                    searchUrl = `https://www.redgifs.com/gifs?query=${encodeURIComponent(term)}&order=new`;
-                    waitTime = 15000; // Much longer wait for SPA
-                    
-                    console.log(`  → ${searchUrl}`);
-                    await page.goto(searchUrl, { waitUntil: 'networkidle', timeout: 30000 });
-                    
-                    // STEP 1: Accept cookie consent
-                    console.log(`  🍪 Accepting cookies...`);
-                    const cookieButtons = [
-                        'button:has-text("Accept")',
-                        'button:has-text("I Agree")',
-                        'button:has-text("Agree")',
-                        '[class*="accept"]',
-                        '[class*="consent"] button'
-                    ];
-                    
-                    for (const sel of cookieButtons) {
-                        try {
-                            const btn = await page.$(sel);
-                            if (btn) {
-                                await btn.click({ timeout: 1000 });
-                                console.log(`     ✓ Clicked cookie consent`);
-                                await page.waitForTimeout(2000);
-                                break;
-                            }
-                        } catch (e) {}
-                    }
-                    
-                    // STEP 2: Wait for content to load (SPA rendering)
-                    console.log(`  ⏳ Waiting for content to render...`);
-                    await page.waitForTimeout(waitTime);
-                    
-                    // STEP 3: Scroll to trigger lazy loading
-                    await page.evaluate(() => {
-                        window.scrollTo(0, 500);
-                    });
-                    await page.waitForTimeout(2000);
-                    
-                    await page.evaluate(() => {
-                        window.scrollTo(0, 1000);
-                    });
-                    await page.waitForTimeout(2000);
-                    
-                    // STEP 4: Diagnostics - what's there NOW?
-                    const pageInfo = await page.evaluate(() => {
-                        const allLinks = Array.from(document.querySelectorAll('a'));
-                        return {
-                            title: document.title,
-                            totalLinks: allLinks.length,
-                            watchLinks: allLinks.filter(a => a.href.includes('/watch/')).length,
-                            gifElements: document.querySelectorAll('[class*="gif"]').length,
-                            videoElements: document.querySelectorAll('video').length,
-                            imgElements: document.querySelectorAll('img').length,
-                            sampleWatchLinks: allLinks.filter(a => a.href.includes('/watch/')).slice(0, 5).map(a => a.href)
-                        };
-                    });
-                    
-                    console.log(`  🔍 REDGIFS (after wait):`);
-                    console.log(`     Total links: ${pageInfo.totalLinks}`);
-                    console.log(`     Watch links: ${pageInfo.watchLinks}`);
-                    console.log(`     Gif elements: ${pageInfo.gifElements}`);
-                    console.log(`     Videos: ${pageInfo.videoElements}`);
-                    console.log(`     Images: ${pageInfo.imgElements}`);
-                    console.log(`     Sample watch links:`, pageInfo.sampleWatchLinks);
-                    
-                    // STEP 5: Try to extract
-                    if (pageInfo.watchLinks > 0) {
-                        container = 'a[href*="/watch/"]';
-                        console.log(`  ✓ Using selector: ${container}`);
-                    } else {
-                        console.log(`  ✗ Still no content - Redgifs may require authentication or different approach`);
-                        continue;
-                    }
-                    
-                    if (maxCount > 0) {
-                        console.log(`  ✓ Using: "${bestSelector}" (${maxCount} elements)`);
-                        container = bestSelector;
-                    } else {
-                        console.log(`  ✗ NO ELEMENTS FOUND - Redgifs may use JavaScript rendering`);
-                        continue;
-                    }
+                    console.log(`  ⚠️  Redgifs requires API access or authentication`);
+                    console.log(`  ℹ️  This site cannot be scraped with standard methods`);
+                    console.log(`  💡 Recommendation: Use Redgifs manually or contact them for API access`);
+                    continue;
                 } else {
                     throw new Error(`Unknown source: ${source}`);
                 }
                 
-                // REGULAR SITES (NOT REDGIFS) - Navigate here
-                if (source !== 'redgifs') {
-                    console.log(`  → ${searchUrl}`);
-                    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
-                    await page.waitForTimeout(waitTime);
-                }
+                console.log(`  → ${searchUrl}`);
+                await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+                await page.waitForTimeout(waitTime);
                 
-                // Check elements
                 const elementCount = await page.$$eval(container, els => els.length).catch(() => 0);
                 console.log(`  📊 Elements: ${elementCount}`);
                 
@@ -197,7 +113,6 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                     continue;
                 }
                 
-                // Extract results
                 const results = await page.$$eval(container, (els, siteName) => {
                     return els.slice(0, 30).map(el => {
                         let title = "Found";
@@ -222,16 +137,6 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                             title = el.querySelector('.n')?.innerText || "SpankBang Video";
                             link = el.querySelector('a.thumb')?.href || "";
                             date = el.querySelector('.d')?.innerText || "Unknown";
-                        } else if (siteName === 'redgifs') {
-                            // Extract from link element
-                            link = el.href || el.getAttribute('href') || "";
-                            if (link && !link.startsWith('http')) {
-                                link = 'https://www.redgifs.com' + link;
-                            }
-                            title = el.querySelector('[class*="title"]')?.innerText ||
-                                   el.closest('[class*="card"]')?.querySelector('h3')?.innerText ||
-                                   el.getAttribute('aria-label') ||
-                                   "Redgifs Video";
                         }
                         
                         return { title, link, date, source: siteName };
