@@ -13,7 +13,6 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
     });
     
-    // Set cookies for age verification
     await context.addCookies([
         { name: 'over18', value: '1', domain: '.reddit.com', path: '/' },
         { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
@@ -97,26 +96,84 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                     searchUrl = `https://spankbang.com/s/${encodeURIComponent(term)}/?o=new`;
                     container = '.video-item';
                 } else if (source === 'redgifs') {
+                    // REDGIFS DIAGNOSTIC MODE
                     searchUrl = `https://www.redgifs.com/gifs?query=${encodeURIComponent(term)}&order=new`;
-                    container = 'a[href^="/watch/"]';
-                    waitTime = 6000; // Redgifs needs more time to load
+                    waitTime = 8000;
+                    
+                    console.log(`  → ${searchUrl}`);
+                    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+                    await page.waitForTimeout(waitTime);
+                    
+                    // DIAGNOSTIC: What's on the page?
+                    const pageInfo = await page.evaluate(() => {
+                        return {
+                            title: document.title,
+                            bodyText: document.body.innerText.substring(0, 200),
+                            totalLinks: document.querySelectorAll('a').length,
+                            watchLinks: document.querySelectorAll('a[href*="watch"]').length,
+                            gifElements: document.querySelectorAll('[class*="gif"]').length,
+                            cardElements: document.querySelectorAll('[class*="card"]').length,
+                            sampleHrefs: Array.from(document.querySelectorAll('a')).slice(0, 10).map(a => a.href)
+                        };
+                    });
+                    
+                    console.log(`  🔍 REDGIFS DIAGNOSTICS:`);
+                    console.log(`     Title: ${pageInfo.title}`);
+                    console.log(`     Body preview: ${pageInfo.bodyText}`);
+                    console.log(`     Total links: ${pageInfo.totalLinks}`);
+                    console.log(`     Watch links: ${pageInfo.watchLinks}`);
+                    console.log(`     Gif elements: ${pageInfo.gifElements}`);
+                    console.log(`     Card elements: ${pageInfo.cardElements}`);
+                    console.log(`     Sample URLs:`, pageInfo.sampleHrefs);
+                    
+                    // Test selectors
+                    const testSelectors = [
+                        'a[href*="/watch/"]',
+                        'a[href^="/watch/"]',
+                        '[class*="gif"] a',
+                        '[class*="card"] a'
+                    ];
+                    
+                    let bestSelector = '';
+                    let maxCount = 0;
+                    
+                    for (const sel of testSelectors) {
+                        const count = await page.$$eval(sel, els => els.length).catch(() => 0);
+                        console.log(`     Selector "${sel}": ${count} elements`);
+                        if (count > maxCount) {
+                            maxCount = count;
+                            bestSelector = sel;
+                        }
+                    }
+                    
+                    if (maxCount > 0) {
+                        console.log(`  ✓ Using: "${bestSelector}" (${maxCount} elements)`);
+                        container = bestSelector;
+                    } else {
+                        console.log(`  ✗ NO ELEMENTS FOUND - Redgifs may use JavaScript rendering`);
+                        continue;
+                    }
                 } else {
                     throw new Error(`Unknown source: ${source}`);
                 }
                 
-                console.log(`  → ${searchUrl}`);
-                await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
-                await page.waitForTimeout(waitTime);
+                // REGULAR SITES (NOT REDGIFS) - Navigate here
+                if (source !== 'redgifs') {
+                    console.log(`  → ${searchUrl}`);
+                    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
+                    await page.waitForTimeout(waitTime);
+                }
                 
-                // Check how many elements found
+                // Check elements
                 const elementCount = await page.$$eval(container, els => els.length).catch(() => 0);
                 console.log(`  📊 Elements: ${elementCount}`);
                 
                 if (elementCount === 0) {
-                    console.log(`  ⚠️  No results found`);
+                    console.log(`  ⚠️  No results`);
                     continue;
                 }
                 
+                // Extract results
                 const results = await page.$$eval(container, (els, siteName) => {
                     return els.slice(0, 30).map(el => {
                         let title = "Found";
@@ -142,11 +199,14 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                             link = el.querySelector('a.thumb')?.href || "";
                             date = el.querySelector('.d')?.innerText || "Unknown";
                         } else if (siteName === 'redgifs') {
-                            // Redgifs - link is in the href
-                            link = el.href ? "https://www.redgifs.com" + el.getAttribute('href') : "";
-                            // Try to find title in parent or nearby elements
+                            // Extract from link element
+                            link = el.href || el.getAttribute('href') || "";
+                            if (link && !link.startsWith('http')) {
+                                link = 'https://www.redgifs.com' + link;
+                            }
                             title = el.querySelector('[class*="title"]')?.innerText ||
                                    el.closest('[class*="card"]')?.querySelector('h3')?.innerText ||
+                                   el.getAttribute('aria-label') ||
                                    "Redgifs Video";
                         }
                         
