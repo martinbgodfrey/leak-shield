@@ -1,7 +1,72 @@
-// REPLACE THE "TUBE SITES & LEAK SITES" SECTION IN scraper.js with this:
+const { chromium } = require('playwright');
 
-    // TUBE SITES & LEAK SITES
-    else {
+async function scanSingleSource(source, keywords, extraSubs = []) {
+    console.log(`\n🚀 Scan Start: ${source.toUpperCase()}`);
+    console.log(`📝 Keywords: ${keywords.join(', ')}`);
+    
+    const browser = await chromium.launch({ 
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled'] 
+    });
+    
+    const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
+    });
+    
+    await context.addCookies([
+        { name: 'over18', value: '1', domain: '.reddit.com', path: '/' },
+        { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
+        { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' }
+    ]);
+
+    const page = await context.newPage();
+    let allFindings = [];
+
+    if (source === 'reddit') {
+        const defaultSubs = [
+            'onlyfanshottest', 'onlyfans101', 'promotesyouronlyfans', 
+            'onlyfansmoms', 'onlyfansmilfs', 'sultsofonlyfans',
+            'OnlyFansAsstastic', 'leaked_content', 'OnlyFansPromotions',
+            'OnlyFansBusty', 'OnlyFansPetite'
+        ];
+        const cleanExtras = extraSubs.map(s => s.replace('r/', '').trim()).filter(s => s);
+        const finalSubs = [...new Set([...defaultSubs, ...cleanExtras])];
+
+        console.log(`📍 Scanning ${finalSubs.length} subreddits...`);
+
+        for (const term of keywords) {
+            for (const sub of finalSubs) {
+                try {
+                    const url = `https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(term)}&restrict_sr=on&sort=new&include_over_18=on`;
+                    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
+                    
+                    const results = await page.$$eval('.search-result-link', (els, sourceSub) => {
+                        return els.map(el => {
+                            const titleEl = el.querySelector('a.search-title');
+                            const thumbEl = el.querySelector('.search-result-icon img');
+                            const authorEl = el.querySelector('.author');
+                            
+                            return {
+                                title: `[r/${sourceSub}] ${titleEl?.innerText || "Post"}`,
+                                link: titleEl?.href || "",
+                                date: el.querySelector('.search-time time')?.innerText || "Recent",
+                                source: 'Reddit',
+                                thumb: thumbEl?.src || null,
+                                author: authorEl?.innerText || "Unknown"
+                            };
+                        });
+                    }, sub);
+                    
+                    if (results.length > 0) {
+                        console.log(`  ✓ r/${sub}: ${results.length}`);
+                        allFindings.push(...results);
+                    }
+                } catch (e) {
+                    console.log(`  ✗ r/${sub}: ${e.message}`);
+                }
+            }
+        }
+    } else {
         for (const term of keywords) {
             try {
                 let searchUrl = '';
@@ -26,7 +91,7 @@
                 } else if (source === 'redgifs') {
                     searchUrl = `https://www.redgifs.com/search?query=${encodeURIComponent(term)}&order=new`;
                     container = 'a[href*="/watch/"], div[data-gif]';
-                    waitTime = 5000; // Redgifs loads slower
+                    waitTime = 5000;
                 } else if (source === 'bunkr') {
                     searchUrl = `https://bunkr.sk/search?q=${encodeURIComponent(term)}`;
                     container = '.grid-item, a[href*="/a/"], a[href*="/v/"]';
@@ -38,12 +103,11 @@
                 await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
                 await page.waitForTimeout(waitTime);
                 
-                // Count elements first
                 const elementCount = await page.$$eval(container, els => els.length).catch(() => 0);
-                console.log(`  📊 Found ${elementCount} elements with selector: ${container}`);
+                console.log(`  📊 Found ${elementCount} elements`);
                 
                 if (elementCount === 0) {
-                    console.log(`  ⚠️  No results found - selector may be wrong`);
+                    console.log(`  ⚠️  No results - selector may need update`);
                     continue;
                 }
                 
@@ -75,20 +139,15 @@
                             title = el.querySelector('.album-title')?.innerText || el.innerText || "Erome Album";
                             link = el.querySelector('a.album-link')?.href || el.href || "";
                         } else if (siteName === 'redgifs') {
-                            // Try multiple approaches for Redgifs
                             const a = el.tagName === 'A' ? el : el.querySelector('a');
                             link = a?.href || "";
-                            // Look for any text content
                             title = el.querySelector('h3')?.innerText || 
                                    el.querySelector('[class*="title"]')?.innerText || 
-                                   el.getAttribute('aria-label') ||
                                    "Redgifs Video";
                         } else if (siteName === 'bunkr') {
                             const a = el.tagName === 'A' ? el : el.querySelector('a');
                             link = a?.href || "";
-                            title = a?.innerText?.trim() || 
-                                   el.querySelector('img')?.getAttribute('alt') ||
-                                   "Bunkr File";
+                            title = a?.innerText?.trim() || "Bunkr File";
                         }
                         
                         return { title, link, date, source: siteName };
@@ -103,3 +162,17 @@
             }
         }
     }
+
+    await browser.close();
+    
+    const unique = [...new Map(allFindings.map(item => [item.link, item])).values()];
+    console.log(`✅ Complete: ${unique.length} unique results\n`);
+    
+    return unique;
+}
+
+async function scanKeywords(keywords, extraSubs = []) {
+    return await scanSingleSource('reddit', keywords, extraSubs);
+}
+
+module.exports = { scanKeywords, scanSingleSource };

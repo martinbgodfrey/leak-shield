@@ -9,7 +9,6 @@ const PORT = process.env.PORT || 8080;
 app.use(express.static('public'));
 app.use(express.json({ limit: '50mb' }));
 
-// Legacy scan endpoint
 app.post('/scan', async (req, res) => {
     const { keywords, extraSubs } = req.body;
     if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
@@ -25,7 +24,6 @@ app.post('/scan', async (req, res) => {
     }
 });
 
-// Single source scan endpoint
 app.post('/scan-source', async (req, res) => {
     const { keywords, source, extraSubs } = req.body;
     
@@ -54,7 +52,6 @@ app.post('/scan-source', async (req, res) => {
     }
 });
 
-// Screenshot capture endpoint
 app.post('/capture', async (req, res) => {
     const { url, source } = req.body;
     
@@ -62,10 +59,11 @@ app.post('/capture', async (req, res) => {
         return res.status(400).json({ success: false, error: 'No URL provided' });
     }
     
-    console.log(`📸 Capture Request: ${url}`);
+    console.log(`\n📸 CAPTURE REQUEST`);
+    console.log(`   URL: ${url}`);
+    console.log(`   Source: ${source}`);
     
     let browser = null;
-    let startTime = Date.now();
     
     try {
         browser = await chromium.launch({ 
@@ -81,82 +79,147 @@ app.post('/capture', async (req, res) => {
         const context = await browser.newContext({
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             viewport: { width: 1920, height: 1080 },
-            deviceScaleFactor: 1
+            deviceScaleFactor: 1,
+            locale: 'en-US'
         });
 
-        const cookies = [];
         const hostname = new URL(url).hostname;
+        console.log(`   Hostname: ${hostname}`);
 
+        // CRITICAL: Set cookies BEFORE navigation
+        const cookies = [];
+        
         if (hostname.includes('reddit')) {
-            cookies.push({ name: 'over18', value: '1', domain: '.reddit.com', path: '/' });
+            cookies.push(
+                { name: 'over18', value: '1', domain: '.reddit.com', path: '/' }
+            );
         } else if (hostname.includes('pornhub')) {
             cookies.push(
                 { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
-                { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' }
+                { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' },
+                { name: 'platform', value: 'pc', domain: '.pornhub.com', path: '/' }
             );
-        } else if (hostname.includes('xnxx') || hostname.includes('xvideos')) {
-            const domain = hostname.replace('www.', '');
-            cookies.push({ name: 'adult_concept', value: '1', domain: `.${domain}`, path: '/' });
+        } else if (hostname.includes('xnxx')) {
+            cookies.push(
+                { name: 'adult_concept', value: '1', domain: '.xnxx.com', path: '/' },
+                { name: 'wptt-adult', value: '1', domain: '.xnxx.com', path: '/' }
+            );
+        } else if (hostname.includes('xvideos')) {
+            cookies.push(
+                { name: 'adult_concept', value: '1', domain: '.xvideos.com', path: '/' }
+            );
+        } else if (hostname.includes('spankbang')) {
+            cookies.push(
+                { name: 'kt_age_confirmed', value: 'true', domain: '.spankbang.com', path: '/' },
+                { name: 'kt_tconsent', value: '1', domain: '.spankbang.com', path: '/' }
+            );
+        } else if (hostname.includes('erome')) {
+            cookies.push(
+                { name: 'age_verified', value: '1', domain: '.erome.com', path: '/' }
+            );
         }
 
         if (cookies.length > 0) {
             await context.addCookies(cookies);
+            console.log(`   ✓ Set ${cookies.length} age verification cookie(s)`);
         }
         
         const page = await context.newPage();
 
+        console.log(`   ⏳ Loading page...`);
         try {
-            await page.goto(url, { waitUntil: 'networkidle', timeout: 25000 });
+            await page.goto(url, { waitUntil: 'networkidle', timeout: 30000 });
+            console.log(`   ✓ Page loaded`);
         } catch (e) { 
-            console.log("  ⚠️  Page load timeout, continuing...");
+            console.log(`   ⚠️  Timeout (continuing anyway)`);
         }
         
-        // Reddit handling
+        // Wait for content
+        await page.waitForTimeout(3000);
+        
+        // REDDIT: Handle popups
         if (hostname.includes('reddit')) {
-            try {
-                console.log("  🔧 Reddit detected...");
-                await page.waitForTimeout(2500);
-                
-                const matureButtons = [
-                    `button:has-text("Yes, I'm Over 18")`,
-                    'button:has-text("Continue")'
-                ];
-                
-                for (const sel of matureButtons) {
-                    try {
-                        const btn = await page.$(sel);
-                        if (btn) {
-                            await btn.click({ timeout: 1000 });
-                            await page.waitForTimeout(2000);
-                            console.log(`  ✓ Clicked: ${sel}`);
-                            break;
-                        }
-                    } catch (e) {}
-                }
-                
-                await page.waitForTimeout(1500);
-            } catch (e) { 
-                console.log("  ⚠️  Reddit error:", e.message);
+            console.log(`   🔧 Reddit: Handling popups...`);
+            
+            const ageButtons = [
+                'button:has-text("Yes, I\'m Over 18")',
+                'button:has-text("Continue")',
+                '.XPromoContinueButton button'
+            ];
+            
+            for (const sel of ageButtons) {
+                try {
+                    const btn = await page.$(sel);
+                    if (btn) {
+                        await btn.click({ timeout: 2000 });
+                        await page.waitForTimeout(3000);
+                        console.log(`   ✓ Clicked age verification`);
+                        break;
+                    }
+                } catch (e) {}
+            }
+            
+            // Close app promos
+            const closeButtons = ['button[aria-label="Close"]', '.XPromoPopup__close'];
+            for (const sel of closeButtons) {
+                try {
+                    const btn = await page.$(sel);
+                    if (btn) {
+                        await btn.click({ timeout: 1000 });
+                        await page.waitForTimeout(500);
+                    }
+                } catch (e) {}
+            }
+        }
+        
+        // TUBE SITES: Click "Enter" if needed
+        if (hostname.includes('pornhub') || hostname.includes('xnxx') || hostname.includes('xvideos') || hostname.includes('spankbang')) {
+            console.log(`   🔧 Tube site: Checking for disclaimers...`);
+            
+            const enterSelectors = [
+                '#disclaimer_btn_enter',
+                'button:has-text("Enter")',
+                'a:has-text("Enter")',
+                '.disclaimer-btn',
+                'button:has-text("I am 18 or older")'
+            ];
+            
+            for (const sel of enterSelectors) {
+                try {
+                    const btn = await page.$(sel);
+                    if (btn) {
+                        await btn.click({ timeout: 1000 });
+                        await page.waitForTimeout(3000);
+                        console.log(`   ✓ Clicked disclaimer button`);
+                        break;
+                    }
+                } catch (e) {}
             }
         }
 
-        await page.evaluate(() => { document.body.style.zoom = "0.75"; });
-        await page.waitForTimeout(1000);
+        // Zoom and scroll
+        await page.evaluate(() => { 
+            document.body.style.zoom = "0.75";
+            window.scrollTo(0, 300);
+        });
+        await page.waitForTimeout(1500);
 
+        // Capture
+        console.log(`   📷 Taking screenshot...`);
         const screenshotBuffer = await page.screenshot({ fullPage: false });
         const base64Image = screenshotBuffer.toString('base64');
         const filename = `EVIDENCE_${source}_${Date.now()}.png`;
+        
+        console.log(`   ✓ Screenshot captured (${(screenshotBuffer.length / 1024).toFixed(1)} KB)`);
 
+        // Upload to Drive (async)
         if (process.env.DRIVE_FOLDER_ID) {
             uploadScreenshot(screenshotBuffer, filename, process.env.DRIVE_FOLDER_ID)
-                .then(() => console.log(`  ✓ Uploaded: ${filename}`))
-                .catch(e => console.log(`  ⚠️  Upload failed: ${e.message}`));
+                .then(() => console.log(`   ✓ Uploaded to Drive`))
+                .catch(e => console.log(`   ⚠️  Drive upload failed`));
         }
 
         await browser.close();
-        
-        const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-        console.log(`  ✓ Captured in ${duration}s`);
         
         res.json({ 
             success: true, 
@@ -168,7 +231,7 @@ app.post('/capture', async (req, res) => {
         if (browser) {
             try { await browser.close(); } catch (e) {}
         }
-        console.error(`  ❌ Capture failed:`, error.message);
+        console.error(`   ❌ CAPTURE FAILED:`, error.message);
         res.status(500).json({ success: false, error: error.message });
     }
 });
