@@ -108,7 +108,6 @@ app.post('/capture', async (req, res) => {
                 { name: 'kt_age_confirmed', value: 'true', domain: '.spankbang.com', path: '/' },
                 { name: 'kt_tconsent', value: '1', domain: '.spankbang.com', path: '/' }
             );
-        
         }
 
         if (cookies.length > 0) {
@@ -128,7 +127,6 @@ app.post('/capture', async (req, res) => {
         
         await page.waitForTimeout(3000);
         
-        // REDDIT
         if (hostname.includes('reddit')) {
             console.log(`   🔧 Reddit: Handling popups...`);
             
@@ -162,7 +160,6 @@ app.post('/capture', async (req, res) => {
             }
         }
         
-        // TUBE SITES
         if (hostname.includes('pornhub') || hostname.includes('xnxx') || hostname.includes('xvideos') || hostname.includes('spankbang')) {
             console.log(`   🔧 Tube site: Checking disclaimers...`);
             
@@ -187,16 +184,14 @@ app.post('/capture', async (req, res) => {
             }
         }
 
-        // BETTER FRAMING - Scroll to top, then down slightly
         await page.evaluate(() => { 
-            window.scrollTo(0, 0); // Go to top first
-            document.body.style.zoom = "0.67"; // Zoom out more to see full content
+            window.scrollTo(0, 0);
+            document.body.style.zoom = "0.67";
         });
         await page.waitForTimeout(500);
         
-        // Slight scroll to show main content (not header)
         await page.evaluate(() => { 
-            window.scrollTo(0, 100); // Just 100px down to skip nav
+            window.scrollTo(0, 100);
         });
         await page.waitForTimeout(1000);
 

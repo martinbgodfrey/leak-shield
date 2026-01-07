@@ -13,12 +13,10 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
     });
     
-    // Set cookies for age verification
     await context.addCookies([
         { name: 'over18', value: '1', domain: '.reddit.com', path: '/' },
         { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
-        { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' },
-        { name: 'isAdult', value: 'true', domain: '.redgifs.com', path: '/' }
+        { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' }
     ]);
 
     const page = await context.newPage();
@@ -42,10 +40,29 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
             for (const sub of finalSubs) {
                 try {
                     const url = `https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(term)}&restrict_sr=on&sort=new&include_over_18=on&t=all`;
-                    console.log(`  🔍 r/${sub}`);
+                    console.log(`  🔍 r/${sub} - ${url}`);
                     
                     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
-                    await page.waitForTimeout(1500);
+                    await page.waitForTimeout(2000);
+                    
+                    // DIAGNOSTIC: What's on the page?
+                    const pageInfo = await page.evaluate(() => {
+                        return {
+                            title: document.title,
+                            hasSearchResults: document.querySelectorAll('.search-result-link').length,
+                            hasSearchResultMeta: document.querySelectorAll('.search-result').length,
+                            hasNoResults: document.body.innerText.includes('no results') || document.body.innerText.includes('there doesn\'t seem'),
+                            bodyPreview: document.body.innerText.substring(0, 300)
+                        };
+                    });
+                    
+                    console.log(`     Page: ${pageInfo.title}`);
+                    console.log(`     Search result links: ${pageInfo.hasSearchResults}`);
+                    console.log(`     Search results: ${pageInfo.hasSearchResultMeta}`);
+                    console.log(`     No results text: ${pageInfo.hasNoResults}`);
+                    if (pageInfo.hasNoResults) {
+                        console.log(`     Body: ${pageInfo.bodyPreview}`);
+                    }
                     
                     const results = await page.$$eval('.search-result-link', (els, sourceSub) => {
                         return els.map(el => {
@@ -66,11 +83,13 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                     }, sub);
                     
                     if (results.length > 0) {
-                        console.log(`    ✓ Found ${results.length}`);
+                        console.log(`     ✓ Found ${results.length}`);
                         allFindings.push(...results);
+                    } else {
+                        console.log(`     ✗ 0 results extracted`);
                     }
                 } catch (e) {
-                    console.log(`    ✗ Error: ${e.message}`);
+                    console.log(`     ✗ Error: ${e.message}`);
                 }
             }
         }
@@ -96,10 +115,6 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                 } else if (source === 'spankbang') {
                     searchUrl = `https://spankbang.com/s/${encodeURIComponent(term)}/?o=new`;
                     container = '.video-item';
-                } else if (source === 'redgifs') {
-                    searchUrl = `https://www.redgifs.com/gifs?query=${encodeURIComponent(term)}&order=new`;
-                    container = 'a[href^="/watch/"]';
-                    waitTime = 6000; // Redgifs needs more time to load
                 } else {
                     throw new Error(`Unknown source: ${source}`);
                 }
@@ -108,12 +123,11 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                 await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
                 await page.waitForTimeout(waitTime);
                 
-                // Check how many elements found
                 const elementCount = await page.$$eval(container, els => els.length).catch(() => 0);
                 console.log(`  📊 Elements: ${elementCount}`);
                 
                 if (elementCount === 0) {
-                    console.log(`  ⚠️  No results found`);
+                    console.log(`  ⚠️  No results`);
                     continue;
                 }
                 
