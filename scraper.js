@@ -1,7 +1,7 @@
 const { chromium } = require('playwright');
 
 async function scanSingleSource(source, keywords, extraSubs = []) {
-    console.log(`\n🚀 Scan Start: ${source.toUpperCase()}`);
+    console.log(`\n🚀 Scan: ${source.toUpperCase()}`);
     console.log(`📝 Keywords: ${keywords.join(', ')}`);
     
     const browser = await chromium.launch({ 
@@ -13,15 +13,18 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'
     });
     
+    // Set cookies for age verification
     await context.addCookies([
         { name: 'over18', value: '1', domain: '.reddit.com', path: '/' },
         { name: 'accessAgeDisclaimerPH', value: '1', domain: '.pornhub.com', path: '/' },
-        { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' }
+        { name: 'age_verified', value: '1', domain: '.pornhub.com', path: '/' },
+        { name: 'isAdult', value: 'true', domain: '.redgifs.com', path: '/' }
     ]);
 
     const page = await context.newPage();
     let allFindings = [];
 
+    // === REDDIT ===
     if (source === 'reddit') {
         const defaultSubs = [
             'onlyfanshottest', 'onlyfans101', 'promotesyouronlyfans', 
@@ -29,7 +32,8 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
             'OnlyFansAsstastic', 'leaked_content', 'OnlyFansPromotions',
             'OnlyFansBusty', 'OnlyFansPetite'
         ];
-        const cleanExtras = extraSubs.map(s => s.replace('r/', '').trim()).filter(s => s);
+        
+        const cleanExtras = extraSubs.map(s => s.replace(/^r\//, '').trim()).filter(s => s.length > 0);
         const finalSubs = [...new Set([...defaultSubs, ...cleanExtras])];
 
         console.log(`📍 Scanning ${finalSubs.length} subreddits...`);
@@ -37,36 +41,43 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
         for (const term of keywords) {
             for (const sub of finalSubs) {
                 try {
-                    const url = `https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(term)}&restrict_sr=on&sort=new&include_over_18=on`;
+                    const url = `https://old.reddit.com/r/${sub}/search?q=${encodeURIComponent(term)}&restrict_sr=on&sort=new&include_over_18=on&t=all`;
+                    console.log(`  🔍 r/${sub}`);
+                    
                     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 10000 });
+                    await page.waitForTimeout(1500);
                     
                     const results = await page.$$eval('.search-result-link', (els, sourceSub) => {
                         return els.map(el => {
                             const titleEl = el.querySelector('a.search-title');
                             const thumbEl = el.querySelector('.search-result-icon img');
                             const authorEl = el.querySelector('.author');
+                            const timeEl = el.querySelector('.search-time time');
                             
                             return {
                                 title: `[r/${sourceSub}] ${titleEl?.innerText || "Post"}`,
                                 link: titleEl?.href || "",
-                                date: el.querySelector('.search-time time')?.innerText || "Recent",
+                                date: timeEl?.innerText || "Recent",
                                 source: 'Reddit',
                                 thumb: thumbEl?.src || null,
                                 author: authorEl?.innerText || "Unknown"
                             };
-                        });
+                        }).filter(item => item.link);
                     }, sub);
                     
                     if (results.length > 0) {
-                        console.log(`  ✓ r/${sub}: ${results.length}`);
+                        console.log(`    ✓ Found ${results.length}`);
                         allFindings.push(...results);
                     }
                 } catch (e) {
-                    console.log(`  ✗ r/${sub}: ${e.message}`);
+                    console.log(`    ✗ Error: ${e.message}`);
                 }
             }
         }
-    } else {
+    }
+    
+    // === OTHER SITES ===
+    else {
         for (const term of keywords) {
             try {
                 let searchUrl = '';
@@ -85,16 +96,10 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                 } else if (source === 'spankbang') {
                     searchUrl = `https://spankbang.com/s/${encodeURIComponent(term)}/?o=new`;
                     container = '.video-item';
-                } else if (source === 'erome') {
-                    searchUrl = `https://www.erome.com/search?q=${encodeURIComponent(term)}&sort=new`;
-                    container = '#room_rows .album, .album-link';
                 } else if (source === 'redgifs') {
-                    searchUrl = `https://www.redgifs.com/search?query=${encodeURIComponent(term)}&order=new`;
-                    container = 'a[href*="/watch/"], div[data-gif]';
-                    waitTime = 5000;
-                } else if (source === 'bunkr') {
-                    searchUrl = `https://bunkr.sk/search?q=${encodeURIComponent(term)}`;
-                    container = '.grid-item, a[href*="/a/"], a[href*="/v/"]';
+                    searchUrl = `https://www.redgifs.com/gifs?query=${encodeURIComponent(term)}&order=new`;
+                    container = 'a[href^="/watch/"]';
+                    waitTime = 6000; // Redgifs needs more time to load
                 } else {
                     throw new Error(`Unknown source: ${source}`);
                 }
@@ -103,11 +108,12 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                 await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 25000 });
                 await page.waitForTimeout(waitTime);
                 
+                // Check how many elements found
                 const elementCount = await page.$$eval(container, els => els.length).catch(() => 0);
-                console.log(`  📊 Found ${elementCount} elements`);
+                console.log(`  📊 Elements: ${elementCount}`);
                 
                 if (elementCount === 0) {
-                    console.log(`  ⚠️  No results - selector may need update`);
+                    console.log(`  ⚠️  No results found`);
                     continue;
                 }
                 
@@ -135,26 +141,20 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
                             title = el.querySelector('.n')?.innerText || "SpankBang Video";
                             link = el.querySelector('a.thumb')?.href || "";
                             date = el.querySelector('.d')?.innerText || "Unknown";
-                        } else if (siteName === 'erome') {
-                            title = el.querySelector('.album-title')?.innerText || el.innerText || "Erome Album";
-                            link = el.querySelector('a.album-link')?.href || el.href || "";
                         } else if (siteName === 'redgifs') {
-                            const a = el.tagName === 'A' ? el : el.querySelector('a');
-                            link = a?.href || "";
-                            title = el.querySelector('h3')?.innerText || 
-                                   el.querySelector('[class*="title"]')?.innerText || 
+                            // Redgifs - link is in the href
+                            link = el.href ? "https://www.redgifs.com" + el.getAttribute('href') : "";
+                            // Try to find title in parent or nearby elements
+                            title = el.querySelector('[class*="title"]')?.innerText ||
+                                   el.closest('[class*="card"]')?.querySelector('h3')?.innerText ||
                                    "Redgifs Video";
-                        } else if (siteName === 'bunkr') {
-                            const a = el.tagName === 'A' ? el : el.querySelector('a');
-                            link = a?.href || "";
-                            title = a?.innerText?.trim() || "Bunkr File";
                         }
                         
                         return { title, link, date, source: siteName };
                     }).filter(i => i && i.link && i.title);
                 }, source);
                 
-                console.log(`  ✓ Extracted ${results.length} results`);
+                console.log(`  ✓ Results: ${results.length}`);
                 allFindings.push(...results);
                 
             } catch (e) {
@@ -166,7 +166,7 @@ async function scanSingleSource(source, keywords, extraSubs = []) {
     await browser.close();
     
     const unique = [...new Map(allFindings.map(item => [item.link, item])).values()];
-    console.log(`✅ Complete: ${unique.length} unique results\n`);
+    console.log(`✅ Total: ${unique.length} unique\n`);
     
     return unique;
 }
